@@ -14,4 +14,4 @@ node_modules
 /.tests
 __pycache__
 
-/venv/
+venv/
