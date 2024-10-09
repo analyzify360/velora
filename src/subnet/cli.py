@@ -21,7 +21,7 @@ def serve(
     keypair = classic_load_key(commune_key)  # type: ignore
     settings = ValidatorSettings()  # type: ignore
     c_client = CommuneClient(get_node_url())
-    subnet_uid = get_subnet_netuid("your-subnet-name")
+    subnet_uid = get_subnet_netuid(c_client, "velora")
     validator = TextValidator(
         keypair,
         subnet_uid,
