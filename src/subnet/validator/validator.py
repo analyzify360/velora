@@ -21,6 +21,7 @@ Constants:
 
 import asyncio
 import concurrent.futures
+import json
 import re
 import time
 from functools import partial
@@ -232,7 +233,8 @@ class TextValidator(Module):
                     timeout=self.call_timeout,  #  type: ignore
                 )
             )
-            miner_answer = miner_answer["answer"]
+            json_miner_answer = json.loads(miner_answer)
+            miner_answer = json_miner_answer["answer"]
 
         except Exception as e:
             log(f"Miner {module_ip}:{module_port} failed to generate an answer")
@@ -255,7 +257,7 @@ class TextValidator(Module):
         if not miner_answer:
             return 0
 
-        return 0
+        return 0.9
 
     def get_miner_prompt(self) -> str:
         """
