@@ -2,6 +2,7 @@ from communex.module import Module, endpoint
 from communex.key import generate_keypair
 from keylimiter import TokenBucketLimiter
 
+import rustimport.import_hook
 
 class Miner(Module):
     """
