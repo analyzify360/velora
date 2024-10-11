@@ -3,3 +3,4 @@ typer
 uvicorn
 keylimiter
 pydantic-settings
+rustimport
