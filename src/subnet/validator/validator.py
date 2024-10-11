@@ -21,6 +21,7 @@ Constants:
 
 import asyncio
 import concurrent.futures
+import json
 import re
 import time
 from functools import partial
@@ -255,7 +256,7 @@ class TextValidator(Module):
         if not miner_answer:
             return 0
 
-        return 0
+        return 0.9
 
     def get_miner_prompt(self) -> str:
         """
