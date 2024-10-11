@@ -3,6 +3,7 @@ from communex.key import generate_keypair
 from communex.compat.key import classic_load_key
 from keylimiter import TokenBucketLimiter
 
+import rustimport.import_hook
 
 class Miner(Module):
     """
@@ -16,7 +17,7 @@ class Miner(Module):
     """
 
     @endpoint
-    def generate(self, prompt: str, model: str = "foo"):
+    def generate(self, prompt: tuple[int, int], model: str = "foo"):
         """
         Generates a response to a given prompt using a specified model.
 
@@ -27,6 +28,8 @@ class Miner(Module):
         Returns:
             None
         """
+        # Generate a response from scraping the rpc server
+        
         print(f"Answering: `{prompt}` with model `{model}`")
         import json
         return json.dumps({"answer": "This is a response to the prompt."})

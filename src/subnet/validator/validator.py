@@ -207,7 +207,7 @@ class TextValidator(Module):
 
     def _get_miner_prediction(
         self,
-        question: str,
+        question: tuple[int, int],
         miner_info: tuple[list[str], Ss58Address],
     ) -> str | None:
         """
@@ -268,7 +268,10 @@ class TextValidator(Module):
         """
 
         # Implement your custom prompt generation logic here
-        return "foo"
+        timestamp = int(time.time())
+        prev_timestamp = timestamp - 60
+        
+        return prev_timestamp, timestamp
 
     async def validate_step(
         self, syntia_netuid: int, settings: ValidatorSettings
