@@ -233,7 +233,8 @@ class TextValidator(Module):
                     timeout=self.call_timeout,  #  type: ignore
                 )
             )
-            miner_answer = miner_answer["answer"]
+            json_miner_answer = json.loads(miner_answer)
+            miner_answer = json_miner_answer["answer"]
 
         except Exception as e:
             log(f"Miner {module_ip}:{module_port} failed to generate an answer")
