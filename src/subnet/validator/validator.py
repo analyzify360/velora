@@ -34,6 +34,7 @@ from substrateinterface import Keypair  # type: ignore
 
 from ._config import ValidatorSettings
 from ..utils import log
+import rust_backend
 
 IP_REGEX = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+")
 
@@ -227,14 +228,14 @@ class TextValidator(Module):
             # handles the communication with the miner
             miner_answer = asyncio.run(
                 client.call(
-                    "generate",
+                    "fetch",
                     miner_key,
-                    {"prompt": question},
+                    {"query": question},
                     timeout=self.call_timeout,  #  type: ignore
                 )
             )
-            json_miner_answer = json.loads(miner_answer)
-            miner_answer = json_miner_answer["answer"]
+            miner_answer = json.loads(miner_answer)
+            # miner_answer = json_miner_answer["answer"]
 
         except Exception as e:
             log(f"Miner {module_ip}:{module_port} failed to generate an answer")
@@ -242,7 +243,7 @@ class TextValidator(Module):
             miner_answer = None
         return miner_answer
 
-    def _score_miner(self, miner_answer: str | None) -> float:
+    def _score_miner(self, miner_prompt: str, miner_answer: str | None) -> float:
         """
         Score the generated answer against the validator's own answer.
 
@@ -259,7 +260,7 @@ class TextValidator(Module):
 
         return 0.9
 
-    def get_miner_prompt(self) -> str:
+    def get_miner_prompt(self) -> dict[str, str, str, str]:
         """
         Generate a prompt for the miner modules.
 
@@ -268,10 +269,22 @@ class TextValidator(Module):
         """
 
         # Implement your custom prompt generation logic here
-        timestamp = int(time.time())
-        prev_timestamp = timestamp - 60
+        token_a="0xaea46a60368a7bd060eec7df8cba43b7ef41ad85"
+        token_b="0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        start_datetime="2024-09-27 11:24:56"
+        end_datetime="2024-09-27 15:25:56"
+        return {"token_a": token_a, "token_b": token_b, "start_datetime": start_datetime, "end_datetime": end_datetime}
+        # return token_a, token_b, start_datetime, end_datetime
         
-        return prev_timestamp, timestamp
+    def check_miner_answer(self, miner_prompt: dict, miner_answer: str | None) -> bool:
+        token_a = miner_prompt.get("token_a", None)
+        token_b = miner_prompt.get("token_b", None)
+        start_datetime = miner_prompt.get("start_datetime", None)
+        end_datetime = miner_prompt.get("end_datetime", None)
+        pool_data = rust_backend.fetch_pool_data_py(token_a, token_b, start_datetime, end_datetime)
+        hash_pool_data = hash(json.dumps(pool_data))
+        hash_miner_answer = hash(miner_answer)
+        return hash_pool_data == hash_miner_answer
 
     async def validate_step(
         self, syntia_netuid: int, settings: ValidatorSettings
@@ -319,7 +332,7 @@ class TextValidator(Module):
                 log(f"Skipping miner {uid} that didn't answer")
                 continue
 
-            score = self._score_miner(miner_answer)
+            score = self._score_miner(miner_prompt, miner_answer)
             time.sleep(0.5)
             # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
             assert score <= 1
