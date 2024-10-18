@@ -39,8 +39,30 @@ class DBManager:
         # Query the timetable table to fetch all data
         timetable_data = self.session.query(Timetable).all()
         
+        results = []
         # Loop through and print the result
         for row in timetable_data:
-            print(f"Start: {row.start}, End: {row.end}, Completed: {row.completed}")
-
-
+            # print(f"Start: {row.start}, End: {row.end}, Completed: {row.completed}")
+            results.append({"start": row.start, "end": row.end, "completed": row.completed})
+        return results
+    
+    def fetch_not_completed_time_range(self):
+        # Query the timetable table to fetch data where completed is False
+        not_completed_data = self.session.query(Timetable).filter_by(completed=False).all()
+        
+        results = []
+        # Loop through and collect the result
+        for row in not_completed_data:
+            results.append({"start": row.start, "end": row.end, "completed": row.completed})
+        return results
+    
+    def mark_as_complete(self, start, end):
+        # Query the timetable table to find the record with the given start and end dates
+        record = self.session.query(Timetable).filter_by(start=start, end=end).first()
+        
+        # If the record exists, update the completed field to True
+        if record:
+            record.completed = True
+            self.session.commit()
+            return True
+        return False
