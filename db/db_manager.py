@@ -17,7 +17,8 @@ class Timetable(Base):
 token_pairs_table_columns = [
     Column('token_a', String),
     Column('token_b', String),
-    Column('fee', Float)
+    Column('fee', Float),
+    Column('completed', Boolean)
 ]
 
 class DBManager:
@@ -73,7 +74,7 @@ class DBManager:
             return True
         return False
     
-    def create_token_pairs_db(self, start: Date, end: Date):
+    def create_token_pairs_table(self, start: Date, end: Date):
         new_table_name = f'token_pairs_{start}_{end}'
         metadata = MetaData(bind = self.engine)
         
@@ -92,10 +93,36 @@ class DBManager:
         
         # Create a list of dictionaries to insert
         insert_values = [
-            {'token_a': token_pair['token_a'], 'token_b': token_pair['token_b'], 'fee': token_pair['fee']}
+            {'token_a': token_pair['token_a'], 'token_b': token_pair['token_b'], 'fee': token_pair['fee'], 'completed': False}
             for token_pair in token_pairs
         ]
         
         # Execute the insert query once with all values
         insert_query = table.insert().values(insert_values)
         self.engine.execute(insert_query)
+    
+    def fetch_token_pairs(self, start: Date, end: Date):
+        table_name = f'token_pairs_{start}_{end}'
+        table = Table(table_name, MetaData(bind=self.engine), autoload=True)
+        
+        # Query the table to fetch all data
+        token_pairs_data = self.engine.execute(table.select()).fetchall()
+        
+        results = []
+        # Loop through and collect the result
+        for row in token_pairs_data:
+            results.append({"token_a": row.token_a, "token_b": row.token_b, "fee": row.fee, "completed": row.completed})
+        return results
+    
+    def fetch_incompleted_token_pairs(self, start: Date, end: Date):
+        table_name = f'token_pairs_{start}_{end}'
+        table = Table(table_name, MetaData(bind=self.engine), autoload=True)
+        
+        # Query the table to fetch data where completed is False
+        completed_data = self.engine.execute(table.select().where(table.c.completed == False)).fetchall()
+        
+        results = []
+        # Loop through and collect the result
+        for row in completed_data:
+            results.append({"token_a": row.token_a, "token_b": row.token_b, "fee": row.fee, "completed": row.completed})
+        return results
