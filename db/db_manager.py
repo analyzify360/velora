@@ -174,6 +174,20 @@ class DBManager:
         for row in completed_data:
             results.append({"token_a": row.token_a, "token_b": row.token_b, "fee": row.fee, "completed": row.completed})
         return results
+
+    def mark_token_pair_as_complete(self, start: Date, end: Date, token_a: str, token_b: str, fee: float):
+        table_name = f'token_pairs_{start}_{end}'
+        table = Table(table_name, MetaData(bind=self.engine), autoload=True)
+        
+        # Query the table to find the record with the given token_a, token_b, and fee
+        record = self.engine.execute(table.select().where(table.c.token_a == token_a).where(table.c.token_b == token_b).where(table.c.fee == fee)).fetchone()
+        
+        # If the record exists, update the completed field to True
+        if record:
+            update_query = table.update().where(table.c.token_a == token_a).where(table.c.token_b == token_b).where(table.c.fee == fee).values(completed=True)
+            self.engine.execute(update_query)
+            return True
+        return False
     
     def create_pool_data_table(self, token_a: str, token_b: str, fee: float):
         new_table_name = f'pool_data_{token_a}_{token_b}_{fee}'
