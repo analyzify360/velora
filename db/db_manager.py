@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Float
+from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Float, Integer
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -25,6 +25,44 @@ pool_data_table_columns = [
     Column('block_number', String),
     Column('event_type', String),
     Column('transaction_hash', String)
+]
+
+swap_event_table_columns = [
+    Column('sender', String),
+    Column('to', String),
+    Column('amount0', String),  # I256 can be stored as String
+    Column('amount1', String),  # I256 can be stored as String
+    Column('sqrt_price_x96', String),  # U256 can be stored as String
+    Column('liquidity', String),  # U256 can be stored as String
+    Column('tick', Integer)  # i32 can be stored as Integer
+]
+
+mint_event_table_columns = [
+    Column('sender', String),
+    Column('owner', String),
+    Column('tick_lower', Integer),  # int24 can be stored as Integer
+    Column('tick_upper', Integer),  # int24 can be stored as Integer
+    Column('amount', String),  # U256 can be stored as String
+    Column('amount0', String),  # U256 can be stored as String
+    Column('amount1', String)  # U256 can be stored as String
+]
+
+burn_event_table_columns = [
+    Column('owner', String),
+    Column('tick_lower', Integer),  # int24 can be stored as Integer
+    Column('tick_upper', Integer),  # int24 can be stored as Integer
+    Column('amount', String),  # U256 can be stored as String
+    Column('amount0', String),  # U256 can be stored as String
+    Column('amount1', String)  # U256 can be stored as String
+]
+
+collect_event_table_columns = [
+    Column('owner', String),
+    Column('recipient', String),
+    Column('tick_lower', Integer),  # int24 can be stored as Integer
+    Column('tick_upper', Integer),  # int24 can be stored as Integer
+    Column('amount0', String),  # U256 can be stored as String
+    Column('amount1', String)  # U256 can be stored as String
 ]
 
 class DBManager:
@@ -141,6 +179,54 @@ class DBManager:
             new_table_name,
             metadata,
             *pool_data_table_columns
+        )
+        
+        new_table.create(self.engine)
+        return new_table
+    def create_swap_event_table(self, token_a: str, token_b: str, fee: float):
+        new_table_name = f'swap_event_{token_a}_{token_b}_{fee}'
+        metadata = MetaData(bind = self.engine)
+        
+        new_table = Table(
+            new_table_name,
+            metadata,
+            *swap_event_table_columns
+        )
+        
+        new_table.create(self.engine)
+        return new_table
+    def create_mint_event_table(self, token_a: str, token_b: str, fee: float):
+        new_table_name = f'mint_event_{token_a}_{token_b}_{fee}'
+        metadata = MetaData(bind = self.engine)
+        
+        new_table = Table(
+            new_table_name,
+            metadata,
+            *mint_event_table_columns
+        )
+        
+        new_table.create(self.engine)
+        return new_table
+    def create_burn_event_table(self, token_a: str, token_b: str, fee: float):
+        new_table_name = f'burn_event_{token_a}_{token_b}_{fee}'
+        metadata = MetaData(bind = self.engine)
+        
+        new_table = Table(
+            new_table_name,
+            metadata,
+            *burn_event_table_columns
+        )
+        
+        new_table.create(self.engine)
+        return new_table
+    def create_collect_event_table(self, token_a: str, token_b: str, fee: float):
+        new_table_name = f'collect_event_{token_a}_{token_b}_{fee}'
+        metadata = MetaData(bind = self.engine)
+        
+        new_table = Table(
+            new_table_name,
+            metadata,
+            *collect_event_table_columns
         )
         
         new_table.create(self.engine)
