@@ -325,8 +325,19 @@ class TextValidator(Module):
             it = executor.map(get_miner_prediction, modules_info.values())
             miner_answers = [*it]
             print(miner_answers)
+        
+        miner_results = zip(modules_info.keys(), miner_answers)
+        
+        overall_hashes = [miner_answer['overall_hash'] for miner_answer in miner_answers]
+        most_common_hash = max(set(overall_hashes), key=overall_hashes.count)
+        
+        miner_results = [(key, miner_answer) for key, miner_answer in miner_results if miner_answer['overall_hash'] == most_common_hash]
+        
+        if not validate_miner_answer(miner_prompt, miner_results):
+            log("Miner answers are not valid")
+            return None
 
-        for uid, miner_response in zip(modules_info.keys(), miner_answers):
+        for uid, miner_response in miner_results:
             miner_answer = miner_response
             if not miner_answer:
                 log(f"Skipping miner {uid} that didn't answer")
