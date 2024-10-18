@@ -21,6 +21,12 @@ token_pairs_table_columns = [
     Column('completed', Boolean)
 ]
 
+pool_data_table_columns = [
+    Column('block_number', String),
+    Column('event_type', String),
+    Column('transaction_hash', String)
+]
+
 class DBManager:
 
     def __init__(self) -> None:
@@ -126,3 +132,16 @@ class DBManager:
         for row in completed_data:
             results.append({"token_a": row.token_a, "token_b": row.token_b, "fee": row.fee, "completed": row.completed})
         return results
+    
+    def create_pool_data_table(self, token_a: str, token_b: str, fee: float):
+        new_table_name = f'pool_data_{token_a}_{token_b}_{fee}'
+        metadata = MetaData(bind = self.engine)
+        
+        new_table = Table(
+            new_table_name,
+            metadata,
+            *pool_data_table_columns
+        )
+        
+        new_table.create(self.engine)
+        return new_table
