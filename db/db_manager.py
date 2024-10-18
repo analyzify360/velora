@@ -28,6 +28,7 @@ pool_data_table_columns = [
 ]
 
 swap_event_table_columns = [
+    Column('transaction_hash', String),
     Column('sender', String),
     Column('to', String),
     Column('amount0', String),  # I256 can be stored as String
@@ -38,6 +39,7 @@ swap_event_table_columns = [
 ]
 
 mint_event_table_columns = [
+    Column('transaction_hash', String),
     Column('sender', String),
     Column('owner', String),
     Column('tick_lower', Integer),  # int24 can be stored as Integer
@@ -48,6 +50,7 @@ mint_event_table_columns = [
 ]
 
 burn_event_table_columns = [
+    Column('transaction_hash', String),
     Column('owner', String),
     Column('tick_lower', Integer),  # int24 can be stored as Integer
     Column('tick_upper', Integer),  # int24 can be stored as Integer
@@ -57,6 +60,7 @@ burn_event_table_columns = [
 ]
 
 collect_event_table_columns = [
+    Column('transaction_hash', String),
     Column('owner', String),
     Column('recipient', String),
     Column('tick_lower', Integer),  # int24 can be stored as Integer
@@ -231,3 +235,60 @@ class DBManager:
         
         new_table.create(self.engine)
         return new_table
+
+    def add_pool_data(self, token_a: str, token_b: str, fee: float, pool_data: list[dict]):
+        # Add the pool data to the pool data table
+        table_name = f'pool_data_{token_a}_{token_b}_{fee}'
+        table = Table(table_name, MetaData(bind=self.engine), autoload=True)
+        
+        insert_values = [
+            {'block_number': data['block_number'], 'event_type': data['event']['type'], 'transaction_hash': data['transaction_hash']}
+            for data in pool_data
+        ]
+        
+        insert_query = table.insert().values(insert_values)
+        self.engine.execute(insert_query)
+        
+        # Add the swap event data to the swap event tables
+        swap_table_name = f'swap_event_{token_a}_{token_b}_{fee}'
+        swap_table = Table(swap_table_name, MetaData(bind=self.engine), autoload=True)
+        
+        swap_event_data = [
+            {'transaction_hash': data['transaction_hash'], **data['event']['data']}
+            for data in pool_data if data['event']['type'] == 'swap'
+        ]
+        insert_query = swap_table.insert().values(swap_event_data)
+        self.engine.execute(insert_query)
+        
+        # Add the mint event data to the mint event tables
+        mint_table_name = f'mint_event_{token_a}_{token_b}_{fee}'
+        mint_table = Table(mint_table_name, MetaData(bind=self.engine), autoload=True)
+        
+        mint_event_data = [
+            {'transaction_hash': data['transaction_hash'], **data['event']['data']}
+            for data in pool_data if data['event']['type'] == 'mint'
+        ]
+        insert_query = mint_table.insert().values(mint_event_data)
+        self.engine.execute(insert_query)
+        
+        # Add the burn event data to the burn event tables
+        burn_table_name = f'burn_event_{token_a}_{token_b}_{fee}'
+        burn_table = Table(burn_table_name, MetaData(bind=self.engine), autoload=True)
+        
+        burn_event_data = [
+            {'transaction_hash': data['transaction_hash'], **data['event']['data']}
+            for data in pool_data if data['event']['type'] == 'burn'
+        ]
+        insert_query = burn_table.insert().values(burn_event_data)
+        self.engine.execute(insert_query)
+        
+        # Add the collect event data to the collect event tables
+        collect_table_name = f'collect_event_{token_a}_{token_b}_{fee}'
+        collect_table = Table(collect_table_name, MetaData(bind=self.engine), autoload=True)
+        
+        collect_event_data = [
+            {'transaction_hash': data['transaction_hash'], **data['event']['data']}
+            for data in pool_data if data['event']['type'] == 'collect'
+        ]
+        insert_query = collect_table.insert().values(collect_event_data)
+        self.engine.execute(insert_query)
