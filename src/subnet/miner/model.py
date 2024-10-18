@@ -4,7 +4,6 @@ from communex.compat.key import classic_load_key
 from keylimiter import TokenBucketLimiter
 
 import json
-
 import rust_backend
 
 class Miner(Module):

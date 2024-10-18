@@ -274,7 +274,6 @@ class TextValidator(Module):
         start_datetime="2024-09-27 11:24:56"
         end_datetime="2024-09-27 15:25:56"
         return {"token_a": token_a, "token_b": token_b, "start_datetime": start_datetime, "end_datetime": end_datetime}
-        # return token_a, token_b, start_datetime, end_datetime
         
     def check_miner_answer(self, miner_prompt: dict, miner_answer: str | None) -> bool:
         token_a = miner_prompt.get("token_a", None)
@@ -325,6 +324,7 @@ class TextValidator(Module):
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             it = executor.map(get_miner_prediction, modules_info.values())
             miner_answers = [*it]
+            print(miner_answers)
 
         for uid, miner_response in zip(modules_info.keys(), miner_answers):
             miner_answer = miner_response
