@@ -4,6 +4,7 @@ use chrono::{Utc, NaiveDateTime, TimeZone};
 use ethers::{abi::Abi, contract::Contract, providers:: { Http, Middleware, Provider}, types::Address};
 use ethers::core::types::U256;
 use serde::Serialize;
+use sha2::{Sha256, Digest};
 use std::sync::Arc;
 use serde_json::{self, Value};
 use std::marker::Send;
@@ -101,7 +102,7 @@ enum UniswapEvent {
 
 impl EthLogDecode for UniswapEvent {
     fn decode_log(log: &RawLog) -> Result<Self, ethers::abi::Error> {
-        decode_uniswap_event(&Log {
+        if let Ok((event, _, _)) = decode_uniswap_event(&Log {
             address: H160::zero(),
             topics: log.topics.clone(),
             data: log.data.clone().into(),
@@ -113,10 +114,14 @@ impl EthLogDecode for UniswapEvent {
             transaction_log_index: None,
             log_type: None,
             removed: None,
-        }).map_err(|_e| ethers::abi::Error::InvalidData)
+        }) {
+            Ok(event)
+        } else {
+            Err(ethers::abi::Error::InvalidData)
+        }
     }
 }
-fn decode_uniswap_event(log: &Log) -> Result<UniswapEvent, Box<dyn std::error::Error + Send + Sync>> {
+fn decode_uniswap_event(log: &Log) -> Result<(UniswapEvent, H256, u64), Box<dyn std::error::Error + Send + Sync>> {
     // Event signatures for Uniswap V3 pool events
     let swap_signature = H256::from_slice(&hex::decode("c42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67").unwrap());
     let mint_signature = H256::from_slice(&hex::decode("7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde").unwrap());
@@ -129,25 +134,28 @@ fn decode_uniswap_event(log: &Log) -> Result<UniswapEvent, Box<dyn std::error::E
         data: log.data.to_vec(),
     };
 
+    let hash = log.transaction_hash.ok_or("Missing transaction hash")?;
+    let block_number = log.block_number.ok_or("Missing block number")?.as_u64();
+
     // Match based on event signature and decode the appropriate event
     if log.topics[0] == swap_signature {
         match <SwapEvent as EthLogDecode>::decode_log(&raw_log) {
-            Ok(event) => return Ok(UniswapEvent::Swap(event)),
+            Ok(event) => return Ok((UniswapEvent::Swap(event), hash, block_number)),
             Err(err) => return Err(Box::new(err)),
         }
     } else if log.topics[0] == mint_signature {
         match <MintEvent as EthLogDecode>::decode_log(&raw_log) {
-            Ok(event) => return Ok(UniswapEvent::Mint(event)),
+            Ok(event) => return Ok((UniswapEvent::Mint(event), hash, block_number)),
             Err(err) => return Err(Box::new(err)),
         }
     } else if log.topics[0] == burn_signature {
         match <BurnEvent as EthLogDecode>::decode_log(&raw_log) {
-            Ok(event) => return Ok(UniswapEvent::Burn(event)),
+            Ok(event) => return Ok((UniswapEvent::Burn(event), hash, block_number)),
             Err(err) => return Err(Box::new(err)),
         }
     } else if log.topics[0] == collect_signature {
         match <CollectEvent as EthLogDecode>::decode_log(&raw_log) {
-            Ok(event) => return Ok(UniswapEvent::Collect(event)),
+            Ok(event) => return Ok((UniswapEvent::Collect(event), hash, block_number)),
             Err(err) => return Err(Box::new(err)),
         }
     } else {
@@ -187,13 +195,15 @@ async fn get_pool_events(
     Ok(logs)
 }
 
-async fn fetch_pool_data(token_a: &str, token_b: &str, start_datetime: &str, end_datetime: &str, _interval: &str) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_pool_data(token_a: &str, token_b: &str, start_datetime: &str, end_datetime: &str, _interval: &str, rpc_url: &str) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
     
     // Connect to the Ethereum provider
     // let ws = Ws::connect("ws://localhost:8546").await?;
     // let provider = Arc::new(Provider::new(ws));
     // let rpc_url = "https://eth.llamarpc.com";
-    let rpc_url = "https://geth.hyperclouds.io";
+    // let provider: Arc<Provider<Http>> = Arc::new(Provider::<Http>::try_from(rpc_url)?);
+   
+    // let rpc_url = "https://geth.hyperclouds.io";
     let provider: Arc<Provider<Http>> = Arc::new(Provider::<Http>::try_from(rpc_url)?);
 
     // Get the Uniswap V3 factory address
@@ -234,17 +244,30 @@ async fn fetch_pool_data(token_a: &str, token_b: &str, start_datetime: &str, end
     let logs = get_pool_events(provider.clone(), pool_address, from_block, to_block).await?;
     println!("Fetched {} logs", logs.len());
     
-
     let mut data = Vec::new();
     // Decode the logs
     for log in logs {
-        data.push(decode_uniswap_event(&log));
+        match decode_uniswap_event(&log) {
+            Ok(event) => {
+                let (uniswap_event, transaction_hash, block_number) = event;
+                let mut uniswap_event_with_metadata = match uniswap_event {
+                    UniswapEvent::Swap(event) => serde_json::json!({ "event": { "type": "swap", "data": event } }),
+                    UniswapEvent::Mint(event) => serde_json::json!({ "event": { "type": "mint", "data": event } }),
+                    UniswapEvent::Burn(event) => serde_json::json!({ "event": { "type": "burn", "data": event } }),
+                    UniswapEvent::Collect(event) => serde_json::json!({ "event": { "type": "collect", "data": event } }),
+                };
+                uniswap_event_with_metadata.as_object_mut().unwrap().insert("transaction_hash".to_string(), serde_json::Value::String(hex::encode(transaction_hash.as_bytes())));
+                uniswap_event_with_metadata.as_object_mut().unwrap().insert("block_number".to_string(), serde_json::Value::Number(serde_json::Number::from(block_number)));
+                data.push(uniswap_event_with_metadata);
+            },
+            Err(e) => return Err(e),
+        }
     }
 
-    let data: Vec<_> = data.into_iter().map(|result| {
-        result.map_err(|e| e.to_string())
-    }).collect();
-    Ok(serde_json::json!({ "data": data }))
+    let mut hasher = Sha256::new();
+    hasher.update(serde_json::to_string(&data)?);
+    let overall_data_hash = format!("{:x}", hasher.finalize());
+    Ok(serde_json::json!({ "data": data, "overall_data_hash": overall_data_hash }))
 }
 
 const NUM_BLOCKS: u64 = 100; // Number of blocks to consider for average block time calculation
@@ -321,10 +344,11 @@ async fn get_block_number_from_timestamp(
 
 
 #[pyfunction]
-fn fetch_pool_data_py(py: Python, token_a: String, token_b: String, start_datetime: String, end_datetime: String, interval: Option<String>) -> PyResult<PyObject> {
+fn fetch_pool_data_py(py: Python, token_a: String, token_b: String, start_datetime: String, end_datetime: String, interval: Option<String>, rpc_url: Option<String>) -> PyResult<PyObject> {
     let interval = interval.unwrap_or_else(|| "1h".to_string());
     let rt = Runtime::new().unwrap();
-    match rt.block_on(fetch_pool_data(&token_a, &token_b, &start_datetime, &end_datetime, &interval)) {
+    let rpc_url = rpc_url.unwrap_or_else(|| "https://geth.hyperclouds.io".to_string());
+    match rt.block_on(fetch_pool_data(&token_a, &token_b, &start_datetime, &end_datetime, &interval, &rpc_url)) {
         Ok(result) => Ok(PyValue(result).into_py(py)),
         Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
     }
@@ -348,8 +372,9 @@ mod tests {
         let start_datetime = "2024-10-11 10:34:56";
         let end_datetime = "2024-10-11 12:35:56";
         let interval = "1h";
+        let rpc_url = "https://geth.hyperclouds.io";
 
-        let result = fetch_pool_data(token_a, token_b, start_datetime, end_datetime, interval).await;
-        assert!(result.is_ok());
+        let __result = fetch_pool_data(token_a, token_b, start_datetime, end_datetime, interval, rpc_url).await;
+        assert!(__result.is_ok());
     }
 }
