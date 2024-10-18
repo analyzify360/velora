@@ -14,5 +14,6 @@ node_modules
 /.tests
 __pycache__
 
+.env
 venv/
 pool_data_fetcher/target/
