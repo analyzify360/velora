@@ -34,7 +34,7 @@ from substrateinterface import Keypair  # type: ignore
 
 from ._config import ValidatorSettings
 from ..utils import log
-import rust_backend
+import pool_data_fetcher
 
 import random
 

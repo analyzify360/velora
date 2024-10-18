@@ -15,4 +15,4 @@ node_modules
 __pycache__
 
 venv/
-rust_backend/target/
+pool_data_fetcher/target/
