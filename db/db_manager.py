@@ -274,50 +274,54 @@ class DBManager:
         with self.engine.connect() as conn:
             conn.execute(insert_query)
 
-            # Add the swap event data to the swap event tables
-            swap_table_name = f'swap_event_{token_a}_{token_b}_{fee}'
-            swap_table = Table(swap_table_name, MetaData(bind=self.engine), autoload=True)
+        # Add the swap event data to the swap event tables
+        swap_table_name = f'swap_event_{token_a}_{token_b}_{fee}'
+        swap_table = Table(swap_table_name, MetaData(bind=self.engine), autoload=True)
 
-            swap_event_data = [
-                {'transaction_hash': data['transaction_hash'], **data['event']['data']}
-                for data in pool_data if data['event']['type'] == 'swap'
-            ]
-            if swap_event_data:
-                insert_query = swap_table.insert().values(swap_event_data)
+        swap_event_data = [
+            {'transaction_hash': data['transaction_hash'], **data['event']['data']}
+            for data in pool_data if data['event']['type'] == 'swap'
+        ]
+        if swap_event_data:
+            insert_query = swap_table.insert().values(swap_event_data)
+            with self.engine.connect() as conn:
                 conn.execute(insert_query)
 
-            # Add the mint event data to the mint event tables
-            mint_table_name = f'mint_event_{token_a}_{token_b}_{fee}'
-            mint_table = Table(mint_table_name, MetaData(bind=self.engine), autoload=True)
+        # Add the mint event data to the mint event tables
+        mint_table_name = f'mint_event_{token_a}_{token_b}_{fee}'
+        mint_table = Table(mint_table_name, MetaData(bind=self.engine), autoload=True)
 
-            mint_event_data = [
-                {'transaction_hash': data['transaction_hash'], **data['event']['data']}
-                for data in pool_data if data['event']['type'] == 'mint'
-            ]
-            if mint_event_data:
-                insert_query = mint_table.insert().values(mint_event_data)
+        mint_event_data = [
+            {'transaction_hash': data['transaction_hash'], **data['event']['data']}
+            for data in pool_data if data['event']['type'] == 'mint'
+        ]
+        if mint_event_data:
+            insert_query = mint_table.insert().values(mint_event_data)
+            with self.engine.connect() as conn:
                 conn.execute(insert_query)
 
-            # Add the burn event data to the burn event tables
-            burn_table_name = f'burn_event_{token_a}_{token_b}_{fee}'
-            burn_table = Table(burn_table_name, MetaData(bind=self.engine), autoload=True)
+        # Add the burn event data to the burn event tables
+        burn_table_name = f'burn_event_{token_a}_{token_b}_{fee}'
+        burn_table = Table(burn_table_name, MetaData(bind=self.engine), autoload=True)
 
-            burn_event_data = [
-                {'transaction_hash': data['transaction_hash'], **data['event']['data']}
-                for data in pool_data if data['event']['type'] == 'burn'
-            ]
-            if burn_event_data:
-                insert_query = burn_table.insert().values(burn_event_data)
+        burn_event_data = [
+            {'transaction_hash': data['transaction_hash'], **data['event']['data']}
+            for data in pool_data if data['event']['type'] == 'burn'
+        ]
+        if burn_event_data:
+            insert_query = burn_table.insert().values(burn_event_data)
+            with self.engine.connect() as conn:
                 conn.execute(insert_query)
 
-            # Add the collect event data to the collect event tables
-            collect_table_name = f'collect_event_{token_a}_{token_b}_{fee}'
-            collect_table = Table(collect_table_name, MetaData(bind=self.engine), autoload=True)
+        # Add the collect event data to the collect event tables
+        collect_table_name = f'collect_event_{token_a}_{token_b}_{fee}'
+        collect_table = Table(collect_table_name, MetaData(bind=self.engine), autoload=True)
 
-            collect_event_data = [
-                {'transaction_hash': data['transaction_hash'], **data['event']['data']}
-                for data in pool_data if data['event']['type'] == 'collect'
-            ]
-            if collect_event_data:
-                insert_query = collect_table.insert().values(collect_event_data)
+        collect_event_data = [
+            {'transaction_hash': data['transaction_hash'], **data['event']['data']}
+            for data in pool_data if data['event']['type'] == 'collect'
+        ]
+        if collect_event_data:
+            insert_query = collect_table.insert().values(collect_event_data)
+            with self.engine.connect() as conn:
                 conn.execute(insert_query)
