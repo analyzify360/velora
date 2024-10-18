@@ -36,6 +36,8 @@ from ._config import ValidatorSettings
 from ..utils import log
 import rust_backend
 
+import random
+
 IP_REGEX = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+")
 
 
@@ -275,15 +277,30 @@ class TextValidator(Module):
         end_datetime="2024-09-27 15:25:56"
         return {"token_a": token_a, "token_b": token_b, "start_datetime": start_datetime, "end_datetime": end_datetime}
         
-    def check_miner_answer(self, miner_prompt: dict, miner_answer: str | None) -> bool:
+    def check_miner_answer(self, miner_prompt: dict, miner_answer: dict | None) -> bool:
         token_a = miner_prompt.get("token_a", None)
         token_b = miner_prompt.get("token_b", None)
         start_datetime = miner_prompt.get("start_datetime", None)
         end_datetime = miner_prompt.get("end_datetime", None)
-        pool_data = rust_backend.fetch_pool_data_py(token_a, token_b, start_datetime, end_datetime)
-        hash_pool_data = hash(json.dumps(pool_data))
-        hash_miner_answer = hash(miner_answer)
-        return hash_pool_data == hash_miner_answer
+        
+        block_number_start, block_number_end = rust_backend.fetch_block_range(token_a, token_b, start_datetime, end_datetime)
+        
+        miner_data = miner_answer.get("data", None)
+        ANSWER_CHECK_COUNT = 10
+        for _ in range(ANSWER_CHECK_COUNT):
+            block_data = random.choice(miner_data)
+            block_number = block_data.get("block_number", None)
+            
+            if block_number is None:
+                return False
+            if block_number < block_number_start or block_number > block_number_end:
+                return False
+            
+            block_data_from_pool = rust_backend.fetch_block_data_by_block_number(block_number)
+            if block_data_from_pool['hash'] != block_data['hash']:
+                return False
+        
+        return True
 
     async def validate_step(
         self, syntia_netuid: int, settings: ValidatorSettings
@@ -333,7 +350,7 @@ class TextValidator(Module):
         
         miner_results = [(key, miner_answer) for key, miner_answer in miner_results if miner_answer['overall_hash'] == most_common_hash]
         
-        if not validate_miner_answer(miner_prompt, miner_results):
+        if not self.check_miner_answer(miner_prompt, miner_results[0][1]):
             log("Miner answers are not valid")
             return None
 
