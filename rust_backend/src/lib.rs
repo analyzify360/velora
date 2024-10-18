@@ -195,16 +195,13 @@ async fn get_pool_events(
     Ok(logs)
 }
 
-async fn fetch_pool_data(token_a: &str, token_b: &str, start_datetime: &str, end_datetime: &str, _interval: &str, rpc_url: &str) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
-    
-    // Connect to the Ethereum provider
-    // let ws = Ws::connect("ws://localhost:8546").await?;
-    // let provider = Arc::new(Provider::new(ws));
-    // let rpc_url = "https://eth.llamarpc.com";
-    // let provider: Arc<Provider<Http>> = Arc::new(Provider::<Http>::try_from(rpc_url)?);
-   
-    // let rpc_url = "https://geth.hyperclouds.io";
-    let provider: Arc<Provider<Http>> = Arc::new(Provider::<Http>::try_from(rpc_url)?);
+async fn get_pool_events_by_block_number(
+    provider: Arc<Provider<Http>>,
+    token_a: &str,
+    token_b: &str,
+    from_block: U64,
+    to_block: U64
+) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
 
     // Get the Uniswap V3 factory address
     let factory_address = Address::from_str("0x1F98431c8aD98523631AE4a59f267346ea31F984")?;
@@ -215,32 +212,6 @@ async fn fetch_pool_data(token_a: &str, token_b: &str, start_datetime: &str, end
     let pool_address = get_pool_address(provider.clone(), factory_address, token_a_address, token_b_address, 3000).await?;
     println!("Fetched pool address: {:?}", pool_address);
 
-    // let date_str = "2024-09-27 19:34:56";
-    let first_naive_datetime = NaiveDateTime::parse_from_str(start_datetime, "%Y-%m-%d %H:%M:%S")
-        .expect("Failed to parse date");
-    let first_datetime_utc = Utc.from_utc_datetime(&first_naive_datetime);
-    let first_timestamp = first_datetime_utc.timestamp() as u64;
-
-    let second_naive_datetime = NaiveDateTime::parse_from_str(end_datetime, "%Y-%m-%d %H:%M:%S")
-        .expect("Failed to parse date");
-    let second_datetime_utc = Utc.from_utc_datetime(&second_naive_datetime);
-    let second_timestamp = second_datetime_utc.timestamp() as u64;
-
-    // Check if the given date time is more than the current date time
-    let current_timestamp = Utc::now().timestamp() as u64;
-    if first_timestamp > current_timestamp {
-        return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Given date time is in the future")));
-    }
-
-    // let block_number = provider.get_block_number().await?;
-    let average_block_time = get_average_block_time(provider.clone()).await?;
-
-    let block_number_by_first_timestamp = get_block_number_from_timestamp(provider.clone(), first_timestamp, average_block_time).await?;
-    let block_number_by_second_timestamp = block_number_by_first_timestamp + (second_timestamp - first_timestamp) / average_block_time;
-
-    // Get the pool events
-    let from_block = block_number_by_first_timestamp;
-    let to_block = block_number_by_second_timestamp;
     let logs = get_pool_events(provider.clone(), pool_address, from_block, to_block).await?;
     println!("Fetched {} logs", logs.len());
     
@@ -268,6 +239,48 @@ async fn fetch_pool_data(token_a: &str, token_b: &str, start_datetime: &str, end
     hasher.update(serde_json::to_string(&data)?);
     let overall_data_hash = format!("{:x}", hasher.finalize());
     Ok(serde_json::json!({ "data": data, "overall_data_hash": overall_data_hash }))
+}
+
+async fn fetch_pool_data(token_a: &str, token_b: &str, start_datetime: &str, end_datetime: &str, _interval: &str, rpc_url: &str) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+    
+    // Connect to the Ethereum provider
+    // let ws = Ws::connect("ws://localhost:8546").await?;
+    // let provider = Arc::new(Provider::new(ws));
+    // let rpc_url = "https://eth.llamarpc.com";
+    // let provider: Arc<Provider<Http>> = Arc::new(Provider::<Http>::try_from(rpc_url)?);
+   
+    // let rpc_url = "https://geth.hyperclouds.io";
+    let provider: Arc<Provider<Http>> = Arc::new(Provider::<Http>::try_from(rpc_url)?);
+
+    // let date_str = "2024-09-27 19:34:56";
+    let first_naive_datetime = NaiveDateTime::parse_from_str(start_datetime, "%Y-%m-%d %H:%M:%S")
+        .expect("Failed to parse date");
+    let first_datetime_utc = Utc.from_utc_datetime(&first_naive_datetime);
+    let first_timestamp = first_datetime_utc.timestamp() as u64;
+
+    let second_naive_datetime = NaiveDateTime::parse_from_str(end_datetime, "%Y-%m-%d %H:%M:%S")
+        .expect("Failed to parse date");
+    let second_datetime_utc = Utc.from_utc_datetime(&second_naive_datetime);
+    let second_timestamp = second_datetime_utc.timestamp() as u64;
+
+    // Check if the given date time is more than the current date time
+    let current_timestamp = Utc::now().timestamp() as u64;
+    if first_timestamp > current_timestamp {
+        return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Given date time is in the future")));
+    }
+
+    // let block_number = provider.get_block_number().await?;
+    let average_block_time = get_average_block_time(provider.clone()).await?;
+
+    let block_number_by_first_timestamp = get_block_number_from_timestamp(provider.clone(), first_timestamp, average_block_time).await?;
+    let block_number_by_second_timestamp = block_number_by_first_timestamp + (second_timestamp - first_timestamp) / average_block_time;
+
+    // Get the pool events
+    let from_block = block_number_by_first_timestamp;
+    let to_block = block_number_by_second_timestamp;
+
+    let pool_events = get_pool_events_by_block_number(provider.clone(), token_a, token_b, from_block, to_block).await?;
+    Ok(pool_events)
 }
 
 const NUM_BLOCKS: u64 = 100; // Number of blocks to consider for average block time calculation
