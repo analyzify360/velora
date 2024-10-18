@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Date, Boolean
+from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -13,6 +13,12 @@ class Timetable(Base):
     start = Column(Date, primary_key=True)  # Assuming 'start' is a unique field, hence primary key
     end = Column(Date)
     completed = Column(Boolean)
+
+token_pairs_table_columns = [
+    Column('token_a', String),
+    Column('token_b', String),
+    Column('fee', Float)
+]
 
 class DBManager:
 
@@ -56,7 +62,7 @@ class DBManager:
             results.append({"start": row.start, "end": row.end, "completed": row.completed})
         return results
     
-    def mark_as_complete(self, start, end):
+    def mark_as_complete(self, start: Date, end: Date):
         # Query the timetable table to find the record with the given start and end dates
         record = self.session.query(Timetable).filter_by(start=start, end=end).first()
         
@@ -66,3 +72,30 @@ class DBManager:
             self.session.commit()
             return True
         return False
+    
+    def create_token_pairs_db(self, start: Date, end: Date):
+        new_table_name = f'token_pairs_{start}_{end}'
+        metadata = MetaData(bind = self.engine)
+        
+        new_table = Table(
+            new_table_name,
+            metadata,
+            *token_pairs_table_columns
+        )
+        
+        new_table.create(self.engine)
+        return new_table
+           
+    def add_token_pairs(self, start: Date, end: Date, token_pairs: list[dict[str, str, float]]):
+        table_name = f'token_pairs_{start}_{end}'
+        table = Table(table_name, MetaData(bind=self.engine), autoload=True)
+        
+        # Create a list of dictionaries to insert
+        insert_values = [
+            {'token_a': token_pair['token_a'], 'token_b': token_pair['token_b'], 'fee': token_pair['fee']}
+            for token_pair in token_pairs
+        ]
+        
+        # Execute the insert query once with all values
+        insert_query = table.insert().values(insert_values)
+        self.engine.execute(insert_query)
