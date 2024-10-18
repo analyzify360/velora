@@ -2,6 +2,8 @@ from sqlalchemy import create_engine, Column, Date, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+from utils.config import get_postgres_url
+
 # Define the base class for your table models
 Base = declarative_base()
 
@@ -12,30 +14,33 @@ class Timetable(Base):
     end = Column(Date)
     completed = Column(Boolean)
 
-# PostgreSQL connection details
-DATABASE_URL = "postgresql+psycopg2://username:password@localhost:5432/mydatabase"
+class DBManager:
 
-# Create the SQLAlchemy engine
-engine = create_engine(DATABASE_URL)
+    def __init__(self) -> None:
+        # Create the SQLAlchemy engine
+        self.engine = create_engine(get_postgres_url())
 
-# Create a configured "Session" class
-Session = sessionmaker(bind=engine)
+        # Create a configured "Session" class
+        self.Session = sessionmaker(bind=self.engine)
+        
+        # Create the table if it doesn't exist
+        Base.metadata.create_all(self.engine)  # This line ensures the table is created if not exists
 
-# Create a session
-session = Session()
 
-# Fetch data from the timetable table
-def fetch_timetable_data():
-    # Query the timetable table to fetch all data
-    timetable_data = session.query(Timetable).all()
+    def __enter__(self):
+        self.session = self.Session()
     
-    # Loop through and print the result
-    for row in timetable_data:
-        print(f"Start: {row.start}, End: {row.end}, Completed: {row.completed}")
+    def __exit__(self, exc_type, exc_value, traceback):
+        # Don't forget to close the session
+        self.session.close()
 
-# Call the function to fetch data
-if __name__ == "__main__":
-    fetch_timetable_data()
+        # Fetch data from the timetable table
+    def fetch_timetable_data(self):
+        # Query the timetable table to fetch all data
+        timetable_data = self.session.query(Timetable).all()
+        
+        # Loop through and print the result
+        for row in timetable_data:
+            print(f"Start: {row.start}, End: {row.end}, Completed: {row.completed}")
 
-# Don't forget to close the session
-session.close()
+
