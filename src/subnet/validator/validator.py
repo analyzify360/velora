@@ -424,7 +424,8 @@ class TextValidator(Module):
         
         process_time_score = {uid: miner_answer["process_time"].total_seconds() for uid, miner_answer in miner_results}
         max_time = max(process_time_score.values())
-        process_time_score = {uid: 1 - max_time / process_time for uid, process_time in process_time_score.items()}
+        min_time = min(process_time_score.values())
+        process_time_score = {uid: 1 - 0.5 * (process_time - min_time) / (max_time - min_time) for uid, process_time in process_time_score.items()}
         
         overall_score = {uid: (accuracy_score[uid] + process_time_score[uid]) / 2 for uid in accuracy_score.keys()}
         return overall_score
