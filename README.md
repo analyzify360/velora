@@ -26,7 +26,19 @@ Velora's architecture is designed for scalability and performance. By utilizing 
    pip3 install -r requirements.txt
    ```
 
-2. To run the miner:
+2. Set environment variables
+    ```bash
+    cp .env.miner .env
+    ```
+
+3. Fill .env variables
+
+4. To run Ethereum Node:
+    ```bash
+    docker compose up -d ethereum-node
+    ```
+
+5. To run the miner:
    ```bash
    comx module serve subnet.miner.model.Miner <name-of-your-com-key> --subnets-whitelist <your-subnet-netuid> [--ip <text>] [--port <number>]
    ```
@@ -35,7 +47,19 @@ Velora's architecture is designed for scalability and performance. By utilizing 
 
 1. Prerequisites (same as for miners).
 
-2. To run the validator:
+2. Set environment variables
+    ```bash
+    cp .env.validator .env
+    ```
+
+3. Fill .env variables
+
+4. To run PostgreSQL Server:
+    ```bash
+    docker compose up -d postgres_db
+    ```
+
+5. To run the validator:
    ```bash
    python3 -m subnet.cli <name-of-your-com-key>
    ```
