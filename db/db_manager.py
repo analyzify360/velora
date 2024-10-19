@@ -71,9 +71,9 @@ collect_event_table_columns = [
 
 class DBManager:
 
-    def __init__(self) -> None:
+    def __init__(self, url = get_postgres_url()) -> None:
         # Create the SQLAlchemy engine
-        self.engine = create_engine(get_postgres_url())
+        self.engine = create_engine(url)
 
         # Create a configured "Session" class
         self.Session = sessionmaker(bind=self.engine)
@@ -88,6 +88,13 @@ class DBManager:
     def __exit__(self, exc_type, exc_value, traceback):
         # Don't forget to close the session
         self.session.close()
+    
+    def add_timetable_entry(self, start: Date, end: Date) -> None:
+        """Add a new timetable entry to the database."""
+        with self.Session() as session:
+            new_entry = Timetable(start=start, end=end, completed=False)
+            session.add(new_entry)
+            session.commit()
 
     def fetch_timetable_data(self) -> List[Dict[str, Union[Date, bool]]]:
         """Fetch all timetable data from the database."""
@@ -95,11 +102,17 @@ class DBManager:
             timetable_data = session.query(Timetable).all()
             return [{"start": row.start, "end": row.end, "completed": row.completed} for row in timetable_data]
 
-    def fetch_not_completed_time_range(self) -> List[Dict[str, Union[Date, bool]]]:
+    def fetch_incompleted_time_range(self) -> List[Dict[str, Union[Date, bool]]]:
         """Fetch all not completed time ranges from the timetable."""
         with self.Session() as session:
             not_completed_data = session.query(Timetable).filter_by(completed=False).all()
             return [{"start": row.start, "end": row.end, "completed": row.completed} for row in not_completed_data]
+    
+    def fetch_last_time_range(self) -> Dict[str, Union[Date, bool]]:
+        """Fetch the last time range from the timetable."""
+        with self.Session() as session:
+            last_time_range = session.query(Timetable).order_by(Timetable.start.desc()).first()
+            return {"start": last_time_range.start, "end": last_time_range.end, "completed": last_time_range.completed}
 
     def mark_as_complete(self, start: Date, end: Date) -> bool:
         """Mark a timetable entry as complete."""
