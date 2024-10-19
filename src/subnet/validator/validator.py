@@ -25,6 +25,7 @@ import json
 import re
 import time
 from functools import partial
+from datetime import timedelta, datetime
 
 from communex.client import CommuneClient  # type: ignore
 from communex.module.client import ModuleClient  # type: ignore
@@ -34,6 +35,11 @@ from substrateinterface import Keypair  # type: ignore
 
 from ._config import ValidatorSettings
 from ..utils import log
+import rust_backend
+
+from db.db_manager import DBManager
+
+import random
 
 IP_REGEX = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+")
 
@@ -188,6 +194,8 @@ class TextValidator(Module):
         self.netuid = netuid
         self.val_model = "foo"
         self.call_timeout = call_timeout
+        
+        self.db_manager = DBManager()
 
     def get_addresses(self, client: CommuneClient, netuid: int) -> dict[int, str]:
         """
@@ -225,16 +233,18 @@ class TextValidator(Module):
         client = ModuleClient(module_ip, int(module_port), self.key)
         try:
             # handles the communication with the miner
+            current_time = datetime.now()
             miner_answer = asyncio.run(
                 client.call(
-                    "generate",
+                    "fetch",
                     miner_key,
-                    {"prompt": question},
+                    {"query": question},
                     timeout=self.call_timeout,  #  type: ignore
                 )
             )
-            json_miner_answer = json.loads(miner_answer)
-            miner_answer = json_miner_answer["answer"]
+            miner_answer = json.loads(miner_answer)
+            process_time = datetime.now() - current_time
+            miner_answer["process_time"] = process_time
 
         except Exception as e:
             log(f"Miner {module_ip}:{module_port} failed to generate an answer")
@@ -242,7 +252,7 @@ class TextValidator(Module):
             miner_answer = None
         return miner_answer
 
-    def _score_miner(self, miner_answer: str | None) -> float:
+    def _score_miner(self, miner_prompt: dict, miner_answer: dict | None, ground_truth: dict) -> float:
         """
         Score the generated answer against the validator's own answer.
 
@@ -256,23 +266,170 @@ class TextValidator(Module):
         # Implement your custom scoring logic here
         if not miner_answer:
             return 0
+        
+        # count the number of correct entries
+        cnt_correct_entry = sum([int(miner_answer["data"][i]["transaction_hash"] == ground_truth["data"][i]["transaction_hash"]) for i in range(len(miner_answer["data"]))])
+        cnt_all = len(miner_answer["data"])
+        
+        accuracy_score = ((cnt_correct_entry - cnt_all * 0.75) / cnt_all * 4) ^ 3
 
-        return 0.9
+        return accuracy_score
+    
+    def add_new_time_range(self) -> None:
+        """
+        Add a new timetable entry to the database.
+        """
+        last_time_range = self.db_manager.fetch_last_time_range()
+        start = last_time_range["end"]
+        end = last_time_range["end"] + timedelta(days=1)
+        
+        self.db_manager.add_timetable_entry(start, end)
+        token_pairs = rust_backend.fetch_token_pairs_in_time_range(start, end)
+        self.db_manager.create_token_pairs_table(start, end)
+        self.db_manager.add_token_pairs(start, end, token_pairs)
+        
+        return start, end
+    
+    def get_time_range(self) -> tuple[datetime, datetime]:
+        """
+        Get the time range for the miner modules.
 
-    def get_miner_prompt(self) -> str:
+        Returns:
+            The time range for the miner modules.
+        """
+        incompleted_time_range = self.db_manager.fetch_incompleted_time_range()
+        
+        if not incompleted_time_range:
+            return self.add_new_time_range()
+        else:
+            return incompleted_time_range[0]["start"], incompleted_time_range[0]["end"]
+    
+    def get_token_pair(self, start: datetime, end: datetime) -> list[dict[str, str]]:
+        """
+        Get the token pairs for the miner modules.
+
+        Args:
+            start: The start datetime.
+            end: The end datetime.
+
+        Returns:
+            The token pairs for the miner modules.
+        """
+        token_pairs = self.db_manager.fetch_incompleted_token_pairs(start, end)
+        
+        if not token_pairs:
+            self.db_manager.mark_time_range_as_complete(start, end)
+            return None
+        return token_pairs[0]
+
+    def get_miner_prompt(self) -> dict[str, str, str, str]:
         """
         Generate a prompt for the miner modules.
 
         Returns:
             The generated prompt for the miner modules.
         """
+        while True:
+            time_range = self.get_time_range()
+            token_pair = self.get_token_pair(time_range[0], time_range[1])
+            
+            if token_pair:
+                break
 
         # Implement your custom prompt generation logic here
-        timestamp = int(time.time())
-        prev_timestamp = timestamp - 60
+        token_a=token_pair["token_a"]
+        token_b=token_pair["token_b"]
+        token_fee=token_pair["fee"]
+        start_datetime=time_range[0].strftime("%Y-%m-%d %H:%M:%S")
+        end_datetime=time_range[1].strftime("%Y-%m-%d %H:%M:%S")
+        return {"token_a": token_a, "token_b": token_b, "token_fee": token_fee, "start_datetime": start_datetime, "end_datetime": end_datetime}
         
-        return prev_timestamp, timestamp
+    def check_miner_answer(self, miner_prompt: dict, miner_answer: dict | None) -> bool:
+        """
+        Check if the miner answers are valid.
+        
+        Args:
+            miner_prompt: The prompt for the miner modules.
+            miner_answer: The generated answer from the miner module.
+        """
+        token_a = miner_prompt.get("token_a", None)
+        token_b = miner_prompt.get("token_b", None)
+        token_fee = miner_prompt.get("token_fee", None)
+        start_datetime = miner_prompt.get("start_datetime", None)
+        end_datetime = miner_prompt.get("end_datetime", None)
+        
+        block_number_start, block_number_end = rust_backend.fetch_block_range(token_a, token_b, token_fee, start_datetime, end_datetime)
+        
+        miner_data = miner_answer.get("data", None)
+        ANSWER_CHECK_COUNT = 10
+        for _ in range(ANSWER_CHECK_COUNT):
+            block_data = random.choice(miner_data)
+            block_number = block_data.get("block_number", None)
+            
+            if block_number is None:
+                return False
+            if block_number < block_number_start or block_number > block_number_end:
+                return False
+            
+            block_data_from_pool = rust_backend.fetch_block_data_by_block_number(block_number)
+            if block_data_from_pool['hash'] != block_data['hash']:
+                return False
+        
+        return True
 
+    def save_pool_data(self, miner_prompt: dict, miner_answer: dict) -> None:
+        """
+        Save the pool data to the database.
+        
+        Args:
+            miner_prompt: The prompt for the miner modules.
+            miner_answer: The generated answer from the miner module
+        """
+        token_a = miner_prompt.get("token_a", None)
+        token_b = miner_prompt.get("token_b", None)
+        token_fee = miner_prompt.get("token_fee", None)
+        start_datetime = miner_prompt.get("start_datetime", None)
+        end_datetime = miner_prompt.get("end_datetime", None)
+        
+        self.db_manager.create_pool_data_table(token_a, token_b, token_fee)
+        self.db_manager.add_pool_data(token_a, token_b, token_fee, miner_answer)
+        
+        self.db_manager.mark_token_pair_as_complete(start_datetime, end_datetime, token_a, token_b, token_fee)
+        
+        token_pairs = self.db_manager.fetch_incompleted_token_pairs(start_datetime, end_datetime)
+        
+        if not token_pairs:
+            self.db_manager.mark_time_range_as_complete(start_datetime, end_datetime)
+
+    def score_miners(self, miner_results, trust_miner_result):
+        """
+        Score the miners based on their answers.
+        
+        Args:
+            miner_results: The results of the miner modules.
+            trust_miner_results: The results of the trusted miner module.
+        """
+        accuracy_score: dict[int, float] = {}
+        for uid, miner_response in miner_results:
+            miner_answer = miner_response
+            if not miner_answer:
+                log(f"Skipping miner {uid} that didn't answer")
+                continue
+
+            score = self._score_miner(miner_answer, trust_miner_result)
+            time.sleep(0.5)
+            # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
+            assert score <= 1
+            accuracy_score[uid] = score
+        
+        process_time_score = {uid: miner_answer["process_time"].total_seconds() for uid, miner_answer in miner_results}
+        max_time = max(process_time_score.values())
+        min_time = min(process_time_score.values())
+        process_time_score = {uid: 1 - 0.5 * (process_time - min_time) / (max_time - min_time) for uid, process_time in process_time_score.items()}
+        
+        overall_score = {uid: (accuracy_score[uid] + process_time_score[uid]) / 2 for uid in accuracy_score.keys()}
+        return overall_score
+    
     async def validate_step(
         self, syntia_netuid: int, settings: ValidatorSettings
     ) -> None:
@@ -312,18 +469,22 @@ class TextValidator(Module):
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             it = executor.map(get_miner_prediction, modules_info.values())
             miner_answers = [*it]
+            print(miner_answers)
+        
+        miner_results = zip(modules_info.keys(), miner_answers)
+        
+        overall_hashes = [miner_answer['overall_hash'] for miner_answer in miner_answers]
+        most_common_hash = max(set(overall_hashes), key=overall_hashes.count)
+        
+        trust_miner_results = [(key, miner_answer) for key, miner_answer in miner_results if miner_answer['overall_hash'] == most_common_hash]
+        
+        if not self.check_miner_answer(miner_prompt, trust_miner_results[0][1]):
+            log("Miner answers are not valid")
+            return None
+        
+        self.save_pool_data(miner_prompt, trust_miner_results[0][1])
 
-        for uid, miner_response in zip(modules_info.keys(), miner_answers):
-            miner_answer = miner_response
-            if not miner_answer:
-                log(f"Skipping miner {uid} that didn't answer")
-                continue
-
-            score = self._score_miner(miner_answer)
-            time.sleep(0.5)
-            # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
-            assert score <= 1
-            score_dict[uid] = score
+        score_dict = self.score_miners(miner_results, trust_miner_results[0][1])
 
         if not score_dict:
             log("No miner managed to give a valid answer")

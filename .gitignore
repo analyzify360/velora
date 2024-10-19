@@ -14,4 +14,7 @@ node_modules
 /.tests
 __pycache__
 
+.env
 venv/
+rust_backend/target/
+jwt/
