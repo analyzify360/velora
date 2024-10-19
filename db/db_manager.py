@@ -200,6 +200,11 @@ class DBManager:
         
         try:
             new_table.create(self.engine)
+            
+            self.create_swap_event_table(token_a, token_b, fee)
+            self.create_mint_event_table(token_a, token_b, fee)
+            self.create_burn_event_table(token_a, token_b, fee)
+            self.create_collect_event_table(token_a, token_b, fee)
         except Exception as e:
             print(f"Error creating table {new_table_name}: {e}")
         return new_table

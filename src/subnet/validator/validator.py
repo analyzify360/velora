@@ -356,6 +356,14 @@ class TextValidator(Module):
         
         return True
 
+    def save_pool_data(self, miner_prompt: dict, miner_answer: dict) -> None:
+        token_a = miner_prompt.get("token_a", None)
+        token_b = miner_prompt.get("token_b", None)
+        start_datetime = miner_prompt.get("start_datetime", None)
+        end_datetime = miner_prompt.get("end_datetime", None)
+        
+        pass
+
     async def validate_step(
         self, syntia_netuid: int, settings: ValidatorSettings
     ) -> None:
@@ -407,6 +415,8 @@ class TextValidator(Module):
         if not self.check_miner_answer(miner_prompt, miner_results[0][1]):
             log("Miner answers are not valid")
             return None
+        
+        self.save_pool_data(miner_prompt, miner_results[0][1])
 
         for uid, miner_response in miner_results:
             miner_answer = miner_response
