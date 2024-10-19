@@ -14,7 +14,7 @@ Velora's architecture is designed for scalability and performance. By utilizing 
 
 ## Workflow
 
-![Workflow](https://github.com/drunest/velora-subnet/images/velora-workflow.jpg)
+![Workflow](https://github.com/drunest/velora-subnet/blob/main/images/velora-workflow.png)
 
 ## Setup
 
