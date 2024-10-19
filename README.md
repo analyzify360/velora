@@ -12,6 +12,10 @@ The decentralized finance (DeFi) ecosystem relies on liquidity pools for token s
 
 Velora's architecture is designed for scalability and performance. By utilizing individual miners' own RPC endpoints—either through local Ethereum nodes or paid services—Velora ensures optimized data fetching speeds. This leads to higher throughput and more reliable query responses, enhancing both the user and miner experience in the network.
 
+## Workflow
+
+![Workflow](https://github.com/drunest/velora-subnet/images/velora-workflow.jpg)
+
 ## Setup
 
 ### Running Ethereum node [Optional]
