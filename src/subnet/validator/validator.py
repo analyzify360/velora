@@ -321,23 +321,29 @@ class TextValidator(Module):
         Returns:
             The generated prompt for the miner modules.
         """
-        time_range = self.get_time_range()
-        token_pair = self.get_token_pair(time_range[0], time_range[1])
+        while True:
+            time_range = self.get_time_range()
+            token_pair = self.get_token_pair(time_range[0], time_range[1])
+            
+            if token_pair:
+                break
 
         # Implement your custom prompt generation logic here
         token_a=token_pair["token_a"]
         token_b=token_pair["token_b"]
+        token_fee=token_pair["fee"]
         start_datetime=time_range[0].strftime("%Y-%m-%d %H:%M:%S")
         end_datetime=time_range[1].strftime("%Y-%m-%d %H:%M:%S")
-        return {"token_a": token_a, "token_b": token_b, "start_datetime": start_datetime, "end_datetime": end_datetime}
+        return {"token_a": token_a, "token_b": token_b, "token_fee": token_fee, "start_datetime": start_datetime, "end_datetime": end_datetime}
         
     def check_miner_answer(self, miner_prompt: dict, miner_answer: dict | None) -> bool:
         token_a = miner_prompt.get("token_a", None)
         token_b = miner_prompt.get("token_b", None)
+        token_fee = miner_prompt.get("token_fee", None)
         start_datetime = miner_prompt.get("start_datetime", None)
         end_datetime = miner_prompt.get("end_datetime", None)
         
-        block_number_start, block_number_end = rust_backend.fetch_block_range(token_a, token_b, start_datetime, end_datetime)
+        block_number_start, block_number_end = rust_backend.fetch_block_range(token_a, token_b, token_fee, start_datetime, end_datetime)
         
         miner_data = miner_answer.get("data", None)
         ANSWER_CHECK_COUNT = 10
@@ -359,10 +365,19 @@ class TextValidator(Module):
     def save_pool_data(self, miner_prompt: dict, miner_answer: dict) -> None:
         token_a = miner_prompt.get("token_a", None)
         token_b = miner_prompt.get("token_b", None)
+        token_fee = miner_prompt.get("token_fee", None)
         start_datetime = miner_prompt.get("start_datetime", None)
         end_datetime = miner_prompt.get("end_datetime", None)
         
-        pass
+        self.db_manager.create_pool_data_table(token_a, token_b, token_fee)
+        self.db_manager.add_pool_data(token_a, token_b, token_fee, miner_answer)
+        
+        self.db_manager.mark_token_pair_as_complete(start_datetime, end_datetime, token_a, token_b, token_fee)
+        
+        token_pairs = self.db_manager.fetch_incompleted_token_pairs(start_datetime, end_datetime)
+        
+        if not token_pairs:
+            self.db_manager.mark_time_range_as_complete(start_datetime, end_datetime)
 
     async def validate_step(
         self, syntia_netuid: int, settings: ValidatorSettings
