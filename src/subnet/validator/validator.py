@@ -233,6 +233,7 @@ class TextValidator(Module):
         client = ModuleClient(module_ip, int(module_port), self.key)
         try:
             # handles the communication with the miner
+            current_time = datetime.now()
             miner_answer = asyncio.run(
                 client.call(
                     "fetch",
@@ -242,7 +243,8 @@ class TextValidator(Module):
                 )
             )
             miner_answer = json.loads(miner_answer)
-            # miner_answer = json_miner_answer["answer"]
+            process_time = datetime.now() - current_time
+            miner_answer["process_time"] = process_time
 
         except Exception as e:
             log(f"Miner {module_ip}:{module_port} failed to generate an answer")
@@ -250,7 +252,7 @@ class TextValidator(Module):
             miner_answer = None
         return miner_answer
 
-    def _score_miner(self, miner_prompt: str, miner_answer: str | None) -> float:
+    def _score_miner(self, miner_prompt: dict, miner_answer: dict | None, ground_truth: dict) -> float:
         """
         Score the generated answer against the validator's own answer.
 
@@ -264,8 +266,14 @@ class TextValidator(Module):
         # Implement your custom scoring logic here
         if not miner_answer:
             return 0
+        
+        # count the number of correct entries
+        cnt_correct_entry = sum([int(miner_answer["data"][i]["transaction_hash"] == ground_truth["data"][i]["transaction_hash"]) for i in range(len(miner_answer["data"]))])
+        cnt_all = len(miner_answer["data"])
+        
+        accuracy_score = ((cnt_correct_entry - cnt_all * 0.75) / cnt_all * 4) ^ 3
 
-        return 0.9
+        return accuracy_score
     
     def add_new_time_range(self) -> None:
         """
@@ -393,6 +401,35 @@ class TextValidator(Module):
         if not token_pairs:
             self.db_manager.mark_time_range_as_complete(start_datetime, end_datetime)
 
+    def score_miners(self, miner_results, trust_miner_result):
+        """
+        Score the miners based on their answers.
+        
+        Args:
+            miner_results: The results of the miner modules.
+            trust_miner_results: The results of the trusted miner module.
+        """
+        accuracy_score: dict[int, float] = {}
+        for uid, miner_response in miner_results:
+            miner_answer = miner_response
+            if not miner_answer:
+                log(f"Skipping miner {uid} that didn't answer")
+                continue
+
+            score = self._score_miner(miner_answer, trust_miner_result)
+            time.sleep(0.5)
+            # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
+            assert score <= 1
+            accuracy_score[uid] = score
+        
+        process_time_score = {uid: miner_answer["process_time"].total_seconds() for uid, miner_answer in miner_results}
+        max_time = max(process_time_score.values())
+        min_time = min(process_time_score.values())
+        process_time_score = {uid: 1 - 0.5 * (process_time - min_time) / (max_time - min_time) for uid, process_time in process_time_score.items()}
+        
+        overall_score = {uid: (accuracy_score[uid] + process_time_score[uid]) / 2 for uid in accuracy_score.keys()}
+        return overall_score
+    
     async def validate_step(
         self, syntia_netuid: int, settings: ValidatorSettings
     ) -> None:
@@ -439,25 +476,15 @@ class TextValidator(Module):
         overall_hashes = [miner_answer['overall_hash'] for miner_answer in miner_answers]
         most_common_hash = max(set(overall_hashes), key=overall_hashes.count)
         
-        miner_results = [(key, miner_answer) for key, miner_answer in miner_results if miner_answer['overall_hash'] == most_common_hash]
+        trust_miner_results = [(key, miner_answer) for key, miner_answer in miner_results if miner_answer['overall_hash'] == most_common_hash]
         
-        if not self.check_miner_answer(miner_prompt, miner_results[0][1]):
+        if not self.check_miner_answer(miner_prompt, trust_miner_results[0][1]):
             log("Miner answers are not valid")
             return None
         
-        self.save_pool_data(miner_prompt, miner_results[0][1])
+        self.save_pool_data(miner_prompt, trust_miner_results[0][1])
 
-        for uid, miner_response in miner_results:
-            miner_answer = miner_response
-            if not miner_answer:
-                log(f"Skipping miner {uid} that didn't answer")
-                continue
-
-            score = self._score_miner(miner_prompt, miner_answer)
-            time.sleep(0.5)
-            # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
-            assert score <= 1
-            score_dict[uid] = score
+        score_dict = self.score_miners(miner_results, trust_miner_results[0][1])
 
         if not score_dict:
             log("No miner managed to give a valid answer")
