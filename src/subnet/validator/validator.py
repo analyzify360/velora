@@ -267,6 +267,21 @@ class TextValidator(Module):
 
         return 0.9
     
+    def add_new_time_range(self) -> None:
+        """
+        Add a new timetable entry to the database.
+        """
+        last_time_range = self.db_manager.fetch_last_time_range()
+        start = last_time_range["end"]
+        end = last_time_range["end"] + timedelta(days=1)
+        
+        self.db_manager.add_timetable_entry(start, end)
+        token_pairs = rust_backend.fetch_token_pairs_in_time_range(start, end)
+        self.db_manager.create_token_pairs_table(start, end)
+        self.db_manager.add_token_pairs(start, end, token_pairs)
+        
+        return start, end
+    
     def get_time_range(self) -> tuple[datetime, datetime]:
         """
         Get the time range for the miner modules.
@@ -277,13 +292,27 @@ class TextValidator(Module):
         incompleted_time_range = self.db_manager.fetch_incompleted_time_range()
         
         if not incompleted_time_range:
-            last_time_range = self.db_manager.fetch_last_time_range()
-            new_time_start = last_time_range["end"]
-            new_time_end = last_time_range["end"] + timedelta(days=1)
-            self.db_manager.add_timetable_entry(new_time_start, new_time_end)
-            return new_time_start, new_time_end
+            return self.add_new_time_range()
         else:
             return incompleted_time_range[0]["start"], incompleted_time_range[0]["end"]
+    
+    def get_token_pair(self, start: datetime, end: datetime) -> list[dict[str, str]]:
+        """
+        Get the token pairs for the miner modules.
+
+        Args:
+            start: The start datetime.
+            end: The end datetime.
+
+        Returns:
+            The token pairs for the miner modules.
+        """
+        token_pairs = self.db_manager.fetch_incompleted_token_pairs(start, end)
+        
+        if not token_pairs:
+            self.db_manager.mark_time_range_as_complete(start, end)
+            return None
+        return token_pairs[0]
 
     def get_miner_prompt(self) -> dict[str, str, str, str]:
         """
@@ -293,13 +322,14 @@ class TextValidator(Module):
             The generated prompt for the miner modules.
         """
         time_range = self.get_time_range()
+        token_pair = self.get_token_pair(time_range[0], time_range[1])
 
         # Implement your custom prompt generation logic here
-        # token_a="0xaea46a60368a7bd060eec7df8cba43b7ef41ad85"
-        # token_b="0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
-        # start_datetime="2024-09-27 11:24:56"
-        # end_datetime="2024-09-27 15:25:56"
-        # return {"token_a": token_a, "token_b": token_b, "start_datetime": start_datetime, "end_datetime": end_datetime}
+        token_a=token_pair["token_a"]
+        token_b=token_pair["token_b"]
+        start_datetime=time_range[0].strftime("%Y-%m-%d %H:%M:%S")
+        end_datetime=time_range[1].strftime("%Y-%m-%d %H:%M:%S")
+        return {"token_a": token_a, "token_b": token_b, "start_datetime": start_datetime, "end_datetime": end_datetime}
         
     def check_miner_answer(self, miner_prompt: dict, miner_answer: dict | None) -> bool:
         token_a = miner_prompt.get("token_a", None)
