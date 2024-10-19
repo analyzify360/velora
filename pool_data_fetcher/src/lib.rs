@@ -15,10 +15,10 @@ use ethers::contract::EthEvent;
 use ethers::utils::hex;
 
 use std::str::FromStr;
+use pyo3::{IntoPy, PyObject};
+use pyo3::types::{PyList, PyDict};
 
-use pyo3::IntoPy;
-use pyo3::types::PyList;
-use pyo3::types::PyDict;
+const NUM_BLOCKS: u64 = 100; // Number of blocks to consider for average block time calculation
 struct PyValue(Value);
 
 impl IntoPy<PyObject> for PyValue {
@@ -121,6 +121,7 @@ impl EthLogDecode for UniswapEvent {
         }
     }
 }
+
 fn decode_uniswap_event(log: &Log) -> Result<(UniswapEvent, H256, u64), Box<dyn std::error::Error + Send + Sync>> {
     // Event signatures for Uniswap V3 pool events
     let swap_signature = H256::from_slice(&hex::decode("c42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67").unwrap());
@@ -164,6 +165,43 @@ fn decode_uniswap_event(log: &Log) -> Result<(UniswapEvent, H256, u64), Box<dyn 
     Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Unknown event signature")))
 }
 
+
+#[pyclass]
+pub struct BlockchainClient {
+    provider: Arc<Provider<Http>>,
+}
+
+#[pymethods]
+impl BlockchainClient {
+    #[new]
+    fn new(rpc_url: String) -> Self {
+        let provider: Arc<Provider<Http>> = Arc::new(Provider::<Http>::try_from(rpc_url).unwrap());
+        BlockchainClient { provider }
+    }
+
+    fn get_pool_events_by_token_pairs(&self, py: Python, token_a: String, token_b: String, from_block: u64, to_block: u64, fee: u32) -> PyResult<PyObject> {
+        let rt = Runtime::new().unwrap();
+        match rt.block_on(get_pool_events_by_token_pairs(self.provider.clone(), &token_a, &token_b, U64::from(from_block), U64::from(to_block), fee)) {
+            Ok(result) => Ok(PyValue(result).into_py(py)),
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
+    fn get_block_number_range(&self, _py: Python, start_datetime: &str, end_datetime: &str) -> (u64, u64) {
+        let rt = Runtime::new().unwrap();
+        let result = rt.block_on(get_block_number_range(self.provider.clone(), start_datetime, end_datetime)).unwrap();
+        (result.0.as_u64(), result.1.as_u64())
+    }
+
+    fn fetch_pool_data(&self, py: Python, token_a: String, token_b: String, fee:u32, start_datetime: String, end_datetime: String, interval: String) -> PyResult<PyObject> {
+        let rt = Runtime::new().unwrap();
+        match rt.block_on(fetch_pool_data(self.provider.clone(), &token_a, &token_b, fee, &start_datetime, &end_datetime, &interval)) {
+            Ok(result) => Ok(PyValue(result).into_py(py)),
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+}
+
 async fn get_pool_address(provider: Arc<Provider<Http>>, factory_address: Address, token0: Address, token1: Address, fee: u32) -> Result<Address, Box<dyn std::error::Error + Send + Sync>> {
     // Load the Uniswap V3 factory ABI
     let abi_json = include_str!("contracts/uniswap_pool_factory_abi.json");
@@ -179,7 +217,7 @@ async fn get_pool_address(provider: Arc<Provider<Http>>, factory_address: Addres
 }
 
 
-async fn get_pool_events(
+async fn get_pool_events_by_pool_address(
     provider: Arc<Provider<Http>>,
     pool_address: H160,
     from_block: U64,
@@ -195,12 +233,13 @@ async fn get_pool_events(
     Ok(logs)
 }
 
-async fn get_pool_events_by_block_number(
+async fn get_pool_events_by_token_pairs(
     provider: Arc<Provider<Http>>,
     token_a: &str,
     token_b: &str,
     from_block: U64,
-    to_block: U64
+    to_block: U64,
+    fee: u32,
 ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
 
     // Get the Uniswap V3 factory address
@@ -209,10 +248,10 @@ async fn get_pool_events_by_block_number(
     // Get the pool address for the given token pair
     let token_a_address = Address::from_str(token_a)?;
     let token_b_address = Address::from_str(token_b)?;
-    let pool_address = get_pool_address(provider.clone(), factory_address, token_a_address, token_b_address, 3000).await?;
+    let pool_address = get_pool_address(provider.clone(), factory_address, token_a_address, token_b_address, fee).await?;
     println!("Fetched pool address: {:?}", pool_address);
 
-    let logs = get_pool_events(provider.clone(), pool_address, from_block, to_block).await?;
+    let logs = get_pool_events_by_pool_address(provider.clone(), pool_address, from_block, to_block).await?;
     println!("Fetched {} logs", logs.len());
     
     let mut data = Vec::new();
@@ -241,18 +280,8 @@ async fn get_pool_events_by_block_number(
     Ok(serde_json::json!({ "data": data, "overall_data_hash": overall_data_hash }))
 }
 
-async fn fetch_pool_data(token_a: &str, token_b: &str, start_datetime: &str, end_datetime: &str, _interval: &str, rpc_url: &str) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
-    
-    // Connect to the Ethereum provider
-    // let ws = Ws::connect("ws://localhost:8546").await?;
-    // let provider = Arc::new(Provider::new(ws));
-    // let rpc_url = "https://eth.llamarpc.com";
-    // let provider: Arc<Provider<Http>> = Arc::new(Provider::<Http>::try_from(rpc_url)?);
-   
-    // let rpc_url = "https://geth.hyperclouds.io";
-    let provider: Arc<Provider<Http>> = Arc::new(Provider::<Http>::try_from(rpc_url)?);
 
-    // let date_str = "2024-09-27 19:34:56";
+async fn get_block_number_range(provider:Arc::<Provider<Http>>, start_datetime: &str, end_datetime: &str) -> Result<(U64, U64), Box<dyn std::error::Error + Send + Sync>>{
     let first_naive_datetime = NaiveDateTime::parse_from_str(start_datetime, "%Y-%m-%d %H:%M:%S")
         .expect("Failed to parse date");
     let first_datetime_utc = Utc.from_utc_datetime(&first_naive_datetime);
@@ -272,18 +301,11 @@ async fn fetch_pool_data(token_a: &str, token_b: &str, start_datetime: &str, end
     // let block_number = provider.get_block_number().await?;
     let average_block_time = get_average_block_time(provider.clone()).await?;
 
-    let block_number_by_first_timestamp = get_block_number_from_timestamp(provider.clone(), first_timestamp, average_block_time).await?;
-    let block_number_by_second_timestamp = block_number_by_first_timestamp + (second_timestamp - first_timestamp) / average_block_time;
+    let start_block_number = get_block_number_from_timestamp(provider.clone(), first_timestamp, average_block_time).await?;
+    let end_block_number = start_block_number + (second_timestamp - first_timestamp) / average_block_time;
 
-    // Get the pool events
-    let from_block = block_number_by_first_timestamp;
-    let to_block = block_number_by_second_timestamp;
-
-    let pool_events = get_pool_events_by_block_number(provider.clone(), token_a, token_b, from_block, to_block).await?;
-    Ok(pool_events)
+    Ok((start_block_number, end_block_number))
 }
-
-const NUM_BLOCKS: u64 = 100; // Number of blocks to consider for average block time calculation
 
 async fn get_average_block_time(provider: Arc<Provider<Http>>) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
     // Fetch the latest block
@@ -355,21 +377,17 @@ async fn get_block_number_from_timestamp(
     Ok(low)
 }
 
+async fn fetch_pool_data(provider: Arc::<Provider<Http>>,token_a: &str, token_b: &str, fee: u32, start_datetime: &str, end_datetime: &str, _interval: &str) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+    // let date_str = "2024-09-27 19:34:56";
+    let (from_block, to_block) = get_block_number_range(provider.clone(), start_datetime, end_datetime).await?;
 
-#[pyfunction]
-fn fetch_pool_data_py(py: Python, token_a: String, token_b: String, start_datetime: String, end_datetime: String, interval: Option<String>, rpc_url: Option<String>) -> PyResult<PyObject> {
-    let interval = interval.unwrap_or_else(|| "1h".to_string());
-    let rt = Runtime::new().unwrap();
-    let rpc_url = rpc_url.unwrap_or_else(|| "https://geth.hyperclouds.io".to_string());
-    match rt.block_on(fetch_pool_data(&token_a, &token_b, &start_datetime, &end_datetime, &interval, &rpc_url)) {
-        Ok(result) => Ok(PyValue(result).into_py(py)),
-        Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
-    }
+    let pool_events = get_pool_events_by_token_pairs(provider.clone(), token_a, token_b, from_block, to_block, fee).await?;
+    Ok(pool_events)
 }
 
 #[pymodule]
-fn rust_backend(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(fetch_pool_data_py, m)?)?;
+fn pool_data_fetcher(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<BlockchainClient>()?;
     Ok(())
 }
 
@@ -385,9 +403,12 @@ mod tests {
         let start_datetime = "2024-10-11 10:34:56";
         let end_datetime = "2024-10-11 12:35:56";
         let interval = "1h";
-        let rpc_url = "https://geth.hyperclouds.io";
+        let rpc_url = "http://localhost:8545";
+        let fee = 30000;
 
-        let __result = fetch_pool_data(token_a, token_b, start_datetime, end_datetime, interval, rpc_url).await;
+        let provider = Arc::new(Provider::<Http>::try_from(rpc_url).unwrap());
+
+        let __result = fetch_pool_data(provider, token_a, token_b, fee, start_datetime, end_datetime, interval).await;
         assert!(__result.is_ok());
     }
 }
