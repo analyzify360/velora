@@ -337,6 +337,13 @@ class TextValidator(Module):
         return {"token_a": token_a, "token_b": token_b, "token_fee": token_fee, "start_datetime": start_datetime, "end_datetime": end_datetime}
         
     def check_miner_answer(self, miner_prompt: dict, miner_answer: dict | None) -> bool:
+        """
+        Check if the miner answers are valid.
+        
+        Args:
+            miner_prompt: The prompt for the miner modules.
+            miner_answer: The generated answer from the miner module.
+        """
         token_a = miner_prompt.get("token_a", None)
         token_b = miner_prompt.get("token_b", None)
         token_fee = miner_prompt.get("token_fee", None)
@@ -363,6 +370,13 @@ class TextValidator(Module):
         return True
 
     def save_pool_data(self, miner_prompt: dict, miner_answer: dict) -> None:
+        """
+        Save the pool data to the database.
+        
+        Args:
+            miner_prompt: The prompt for the miner modules.
+            miner_answer: The generated answer from the miner module
+        """
         token_a = miner_prompt.get("token_a", None)
         token_b = miner_prompt.get("token_b", None)
         token_fee = miner_prompt.get("token_fee", None)
