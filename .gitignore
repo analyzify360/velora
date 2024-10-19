@@ -17,4 +17,4 @@ __pycache__
 .env
 venv/
 rust_backend/target/
-ops/jwt/
+jwt/
