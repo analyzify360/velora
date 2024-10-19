@@ -28,7 +28,7 @@ Velora's architecture is designed for scalability and performance. By utilizing 
 
 2. Set environment variables
     ```bash
-    cp .env.example .env
+    cp .env.miner .env
     ```
 
 3. Fill .env variables
@@ -49,7 +49,7 @@ Velora's architecture is designed for scalability and performance. By utilizing 
 
 2. Set environment variables
     ```bash
-    cp .env.example .env
+    cp .env.validator .env
     ```
 
 3. Fill .env variables
