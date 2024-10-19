@@ -1,42 +1,55 @@
-# Commune Subnet Templeate
+# Velora Subnet
 
-Subnet template built on top of [CommuneX](https://github.com/agicommies/communex).
+## What is Velora?
 
-Lern how to structure, build and deploy a subnet on [Commune AI](https://communeai.org/)!
+Velora is a specialized subnet built to fetch and manage pool data from Uniswap V3. It enables miners to extract crucial information about liquidity pools based on specific parameters such as token pairs, fee tiers, and time ranges. Validators coordinate this process by sending queries to miners, who in turn fetch the data and store it in the database for analysis and further use.
 
-## Dependencies
+## Why is Velora Necessary in the Real World?
 
-The whole subnet template is built on top of the [CommuneX library / SDK](https://github.com/agicommies/communex).
-Which is truly the only essential dependency.
+The decentralized finance (DeFi) ecosystem relies on liquidity pools for token swaps and market-making. Velora serves a critical role in improving the efficiency of pool data retrieval and management, particularly from Uniswap V3. It enables faster, more accurate access to key liquidity metrics, reducing the need for centralized infrastructure while ensuring data is efficiently captured and stored.
 
-Although in order to make the template more explict we also provide additional libraries.
-You can find the whole dependency list we used in the [requirements.txt](./requirements.txt) file.
+## Efficiency
 
-```txt
-communex
-typer
-uvicorn
-keylimiter
-pydantic-settings
+Velora's architecture is designed for scalability and performance. By utilizing individual miners' own RPC endpoints—either through local Ethereum nodes or paid services—Velora ensures optimized data fetching speeds. This leads to higher throughput and more reliable query responses, enhancing both the user and miner experience in the network.
+
+## Setup
+
+### Running Miner
+
+1. Prerequisites:
+   ```bash
+   git clone https://github.com/drunest/velora-subnet.git
+   cd velora-subnet
+   python3 -m venv venv
+   source venv/bin/activate
+   export PYTHONPATH=.
+   pip3 install -r requirements.txt
+   ```
+
+2. To run the miner:
+   ```bash
+   comx module serve subnet.miner.model.Miner <name-of-your-com-key> --subnets-whitelist <your-subnet-netuid> [--ip <text>] [--port <number>]
+   ```
+
+### Running Validator
+
+1. Prerequisites (same as for miners).
+
+2. To run the validator:
+   ```bash
+   python3 -m subnet.cli <name-of-your-com-key>
+   ```
+
+### Running Miner with PM2
+
+To run the miner using PM2 for process management:
+```bash
+pm2 start "comx module serve subnet.miner.model.Miner <name-of-your-com-key> --subnets-whitelist <your-subnet-netuid>" --name velora-miner
 ```
 
-## Miner
+### Running Validator with PM2
 
-From the root of your project, you can just call **comx module serve**. For example:
-
-```sh
-comx module serve commune-subnet-template.subnet.miner.model.Miner <name-of-your-com-key> [--subnets-whitelist <your-subnet-netuid>] \
-[--ip <text>] [--port <number>]
+To run the validator using PM2:
+```bash
+pm2 start "python3 -m subnet.cli <name-of-your-com-key>" --name velora-validator
 ```
-
-## Validator
-
-To run the validator, just call the file in which you are executing `validator.validate_loop()`. For example:
-
-```sh
-python3 -m commune-subnet-template.subnet.cli <name-of-your-com-key>
-```
-
-## Further reading
-
-For full documentation of the Commune AI ecosystem, please visit the [Official Commune Page](https://communeai.org/), and it's developer documentation. There you can learn about all subnet details, deployment, and more!
