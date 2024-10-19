@@ -14,6 +14,19 @@ Velora's architecture is designed for scalability and performance. By utilizing 
 
 ## Setup
 
+### Running Ethereum node [Optional]
+
+You can run your own Ethereum node locally using the following command:
+
+```bash
+docker compose up -d ethereum-node
+```
+
+Please note that this process may take a significant amount of time to fetch all the necessary data.
+
+If you have an alternative Ethereum node that you’d like to use, you can specify it in your `.env` file.
+
+
 ### Running Miner
 
 1. Prerequisites:
@@ -33,12 +46,7 @@ Velora's architecture is designed for scalability and performance. By utilizing 
 
 3. Fill .env variables
 
-4. To run Ethereum Node:
-    ```bash
-    docker compose up -d ethereum-node
-    ```
-
-5. To run the miner:
+4. To run the miner:
    ```bash
    comx module serve subnet.miner.model.Miner <name-of-your-com-key> --subnets-whitelist <your-subnet-netuid> [--ip <text>] [--port <number>]
    ```
