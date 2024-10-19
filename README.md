@@ -13,7 +13,6 @@ The decentralized finance (DeFi) ecosystem relies on liquidity pools for token s
 Velora's architecture is designed for scalability and performance. By utilizing individual miners' own RPC endpoints—either through local Ethereum nodes or paid services—Velora ensures optimized data fetching speeds. This leads to higher throughput and more reliable query responses, enhancing both the user and miner experience in the network.
 
 ## Setup
-Here’s the updated **Running Miner** and **Running Validator** sections based on your updates:
 
 ### Running Miner
 
@@ -54,5 +53,3 @@ To run the validator using PM2:
 ```bash
 pm2 start "python3 -m subnet.cli <name-of-your-com-key>" --name velora-validator
 ```
-
-Let me know if you'd like further adjustments, as Trevor said!
