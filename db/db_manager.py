@@ -114,7 +114,7 @@ class DBManager:
             last_time_range = session.query(Timetable).order_by(Timetable.start.desc()).first()
             return {"start": last_time_range.start, "end": last_time_range.end, "completed": last_time_range.completed}
 
-    def mark_as_complete(self, start: Date, end: Date) -> bool:
+    def mark_time_range_as_complete(self, start: Date, end: Date) -> bool:
         """Mark a timetable entry as complete."""
         with self.Session() as session:
             record = session.query(Timetable).filter_by(start=start, end=end).first()
