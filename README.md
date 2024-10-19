@@ -85,3 +85,22 @@ To run the validator using PM2:
 ```bash
 pm2 start "python3 -m subnet.cli <name-of-your-com-key>" --name velora-validator
 ```
+
+## Scoring Miners
+
+To evaluate miners based on their responses:
+
+1. **Collect Results**:
+   Gather the results from all miners, ensuring to include their unique identifiers and response data.
+
+2. **Benchmarking**:
+   Use the trusted results from trusted miners as a benchmark for comparison.
+
+3. **Accuracy Assessment**:
+   Score each miner's response based on its accuracy relative to the trusted miner's results. 
+
+4. **Processing Time Measurement**:
+   Evaluate the processing time for each miner's response. Normalize these times to derive a processing time score, ensuring faster responses are scored higher.
+
+5. **Overall Scoring**:
+   Calculate the overall score for each miner by averaging their accuracy score and processing time score. The final scores will range from 0 to 1, with higher scores indicating better performance.
