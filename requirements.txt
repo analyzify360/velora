@@ -4,3 +4,5 @@ uvicorn
 keylimiter
 pydantic-settings
 rustimport
+sqlalchemy
+psycopg2-binary
