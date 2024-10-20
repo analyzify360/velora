@@ -18,3 +18,4 @@ __pycache__
 venv/
 pool_data_fetcher/target/
 jwt/
+
