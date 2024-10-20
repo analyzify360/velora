@@ -19,6 +19,9 @@ use pyo3::{IntoPy, PyObject};
 use pyo3::types::{PyList, PyDict};
 
 const NUM_BLOCKS: u64 = 100; // Number of blocks to consider for average block time calculation
+const FACTORY_ADDRESS: &str = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
+const POOL_CREATED_SIGNATURE: &str = "0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118";
+
 struct PyValue(Value);
 
 impl IntoPy<PyObject> for PyValue {
@@ -166,6 +169,17 @@ fn decode_uniswap_event(log: &Log) -> Result<(UniswapEvent, H256, u64), Box<dyn 
 }
 
 
+#[derive(Debug, EthEvent, Serialize)]
+#[ethevent(name = "PoolCreated", abi = "PoolCreated(address indexed token0, address indexed token1, uint24 indexed fee, int24 tickSpacing, address pool)")]
+struct PoolCreatedEvent {
+    token0: Address,
+    token1: Address,
+    fee: u32,
+    tick_spacing: i32,
+    pool: Address,
+}
+
+
 #[pyclass]
 pub struct BlockchainClient {
     provider: Arc<Provider<Http>>,
@@ -182,7 +196,7 @@ impl BlockchainClient {
     fn get_pool_events_by_token_pairs(&self, py: Python, token_a: String, token_b: String, from_block: u64, to_block: u64, fee: u32) -> PyResult<PyObject> {
         let rt = Runtime::new().unwrap();
         match rt.block_on(get_pool_events_by_token_pairs(self.provider.clone(), &token_a, &token_b, U64::from(from_block), U64::from(to_block), fee)) {
-            Ok(result) => Ok(PyValue(result).into_py(py)),
+            Ok(result) => Ok(PyValue(serde_json::json!(result)).into_py(py)),
             Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
@@ -200,6 +214,15 @@ impl BlockchainClient {
             Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
         }
     }
+
+    fn get_pool_created_events_between_two_timestamps(&self, py: Python, start_timestamp: &str, end_timestamp: &str) -> PyResult<PyObject> {
+        let rt = Runtime::new().unwrap();
+        match rt.block_on(get_pool_created_events_between_two_timestamps(self.provider.clone(), Address::from_str(FACTORY_ADDRESS).unwrap(), start_timestamp, end_timestamp)) {
+            Ok(result) => Ok(PyValue(serde_json::json!(result)).into_py(py)),
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+    
 }
 
 async fn get_pool_address(provider: Arc<Provider<Http>>, factory_address: Address, token0: Address, token1: Address, fee: u32) -> Result<Address, Box<dyn std::error::Error + Send + Sync>> {
@@ -385,6 +408,45 @@ async fn fetch_pool_data(provider: Arc::<Provider<Http>>,token_a: &str, token_b:
     Ok(pool_events)
 }
 
+async fn get_pool_created_events_between_two_timestamps(
+    provider: Arc<Provider<Http>>,
+    factory_address: Address,
+    start_timestamp: &str,
+    end_timestamp: &str,
+) -> Result<Vec<Value>, Box<dyn std::error::Error + Send + Sync>> {
+    let (start_block_number, end_block_number) = get_block_number_range(provider.clone(), start_timestamp, end_timestamp).await?;
+
+    let filter = Filter::new()
+        .address(factory_address)
+        .topic0(H256::from_str(POOL_CREATED_SIGNATURE).unwrap())
+        .from_block(start_block_number)
+        .to_block(end_block_number);
+
+    let logs = provider.get_logs(&filter).await?;
+
+    let mut pool_created_events = Vec::new();
+    for log in logs {
+        let raw_log = RawLog {
+            topics: log.topics.clone(),
+            data: log.data.to_vec(),
+        };
+
+        if log.topics[0] == H256::from_str(POOL_CREATED_SIGNATURE).unwrap() {
+            let pool_created_event = <PoolCreatedEvent as EthLogDecode>::decode_log(&raw_log)?;
+            pool_created_events.push(serde_json::json!({
+                "token0": pool_created_event.token0,
+                "token1": pool_created_event.token1,
+                "fee": pool_created_event.fee,
+                "tick_spacing": pool_created_event.tick_spacing,
+                "pool": pool_created_event.pool,
+                "block_number": log.block_number.unwrap().as_u64(),
+            }));
+        }
+    }
+
+    Ok(pool_created_events)
+}
+
 #[pymodule]
 fn pool_data_fetcher(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<BlockchainClient>()?;
@@ -404,7 +466,7 @@ mod tests {
         let end_datetime = "2024-10-11 12:35:56";
         let interval = "1h";
         let rpc_url = "http://localhost:8545";
-        let fee = 30000;
+        let fee = 3000;
 
         let provider = Arc::new(Provider::<Http>::try_from(rpc_url).unwrap());
 
