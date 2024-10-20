@@ -331,6 +331,7 @@ class TextValidator(Module):
         self.db_manager.add_timetable_entry(start, end)
         token_pairs = rust_backend.fetch_token_pairs_in_time_range(start, end)
         self.db_manager.create_token_pairs_table(start, end)
+        self.db_manager.add_token_pairs(start, end, previous_token_pairs)
         self.db_manager.add_token_pairs(start, end, token_pairs)
         
         return start, end
