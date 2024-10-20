@@ -39,6 +39,8 @@ import pool_data_fetcher
 
 from db.db_manager import DBManager
 
+from db.db_manager import DBManager
+
 import random
 
 IP_REGEX = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+")
