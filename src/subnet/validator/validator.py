@@ -284,8 +284,10 @@ class TextValidator(Module):
         end = last_time_range["end"] + timedelta(days=1)
         
         self.db_manager.add_timetable_entry(start, end)
+        previous_token_pairs = self.db_manager.fetch_token_pairs(last_time_range['start'], last_time_range['end'])
         token_pairs = rust_backend.fetch_token_pairs_in_time_range(start, end)
         self.db_manager.create_token_pairs_table(start, end)
+        self.db_manager.add_token_pairs(start, end, previous_token_pairs)
         self.db_manager.add_token_pairs(start, end, token_pairs)
         
         return start, end
