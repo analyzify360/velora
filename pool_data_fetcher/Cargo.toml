@@ -1,5 +1,5 @@
 [package]
-name = "rust_backend"
+name = "pool_data_fetcher"
 version = "0.1.0"
 edition = "2021"
 

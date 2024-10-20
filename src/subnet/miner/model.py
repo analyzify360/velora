@@ -4,7 +4,7 @@ from communex.compat.key import classic_load_key
 from keylimiter import TokenBucketLimiter
 
 import json
-import rust_backend
+import pool_data_fetcher
 
 class Miner(Module):
     """
@@ -24,7 +24,7 @@ class Miner(Module):
         token_b = query.get("token_b", None)
         start_datetime = query.get("start_datetime", None)
         end_datetime = query.get("end_datetime", None)
-        result = rust_backend.fetch_pool_data_py(token_a, token_b, start_datetime, end_datetime)
+        result = pool_data_fetcher.fetch_pool_data_py(token_a, token_b, start_datetime, end_datetime)
         
         return json.dumps(result)
 
