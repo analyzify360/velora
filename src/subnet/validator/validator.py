@@ -41,6 +41,8 @@ from db.db_manager import DBManager
 
 from db.db_manager import DBManager
 
+from db.db_manager import DBManager
+
 import random
 
 IP_REGEX = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+")
@@ -290,6 +292,45 @@ class TextValidator(Module):
         token_pairs = rust_backend.fetch_token_pairs_in_time_range(start, end)
         self.db_manager.create_token_pairs_table(start, end)
         self.db_manager.add_token_pairs(start, end, previous_token_pairs)
+        self.db_manager.add_token_pairs(start, end, token_pairs)
+        
+        return start, end
+    
+    def get_time_range(self) -> tuple[datetime, datetime]:
+        """
+        Get the time range for the miner modules.
+
+        Returns:
+            The time range for the miner modules.
+        """
+        incompleted_time_range = self.db_manager.fetch_incompleted_time_range()
+        
+        if not incompleted_time_range:
+            return self.add_new_time_range()
+        else:
+            return incompleted_time_range[0]["start"], incompleted_time_range[0]["end"]
+    
+    def get_token_pair(self, start: datetime, end: datetime) -> list[dict[str, str]]:
+        """
+        Get the token pairs for the miner modules.
+
+        Args:
+            start: The start datetime.
+            end: The end datetime.
+
+        return accuracy_score
+    
+    def add_new_time_range(self) -> None:
+        """
+        Add a new timetable entry to the database.
+        """
+        last_time_range = self.db_manager.fetch_last_time_range()
+        start = last_time_range["end"]
+        end = last_time_range["end"] + timedelta(days=1)
+        
+        self.db_manager.add_timetable_entry(start, end)
+        token_pairs = rust_backend.fetch_token_pairs_in_time_range(start, end)
+        self.db_manager.create_token_pairs_table(start, end)
         self.db_manager.add_token_pairs(start, end, token_pairs)
         
         return start, end
