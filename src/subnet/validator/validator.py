@@ -39,10 +39,6 @@ import pool_data_fetcher
 
 from db.db_manager import DBManager
 
-from db.db_manager import DBManager
-
-from db.db_manager import DBManager
-
 import random
 
 IP_REGEX = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+")
@@ -288,49 +284,10 @@ class TextValidator(Module):
         end = last_time_range["end"] + timedelta(days=1)
         
         self.db_manager.add_timetable_entry(start, end)
-        previous_token_pairs = self.db_manager.fetch_token_pairs(last_time_range['start'], last_time_range['end'])
-        token_pairs = rust_backend.fetch_token_pairs_in_time_range(start, end)
+        previous_token_pairs = self.db_manager.fetch_token_pairs(last_time_range["start"], last_time_range["end"])
+        token_pairs = pool_data_fetcher.fetch_token_pairs_in_time_range(start, end)
         self.db_manager.create_token_pairs_table(start, end)
         self.db_manager.add_token_pairs(start, end, previous_token_pairs)
-        self.db_manager.add_token_pairs(start, end, token_pairs)
-        
-        return start, end
-    
-    def get_time_range(self) -> tuple[datetime, datetime]:
-        """
-        Get the time range for the miner modules.
-
-        Returns:
-            The time range for the miner modules.
-        """
-        incompleted_time_range = self.db_manager.fetch_incompleted_time_range()
-        
-        if not incompleted_time_range:
-            return self.add_new_time_range()
-        else:
-            return incompleted_time_range[0]["start"], incompleted_time_range[0]["end"]
-    
-    def get_token_pair(self, start: datetime, end: datetime) -> list[dict[str, str]]:
-        """
-        Get the token pairs for the miner modules.
-
-        Args:
-            start: The start datetime.
-            end: The end datetime.
-
-        return accuracy_score
-    
-    def add_new_time_range(self) -> None:
-        """
-        Add a new timetable entry to the database.
-        """
-        last_time_range = self.db_manager.fetch_last_time_range()
-        start = last_time_range["end"]
-        end = last_time_range["end"] + timedelta(days=1)
-        
-        self.db_manager.add_timetable_entry(start, end)
-        token_pairs = rust_backend.fetch_token_pairs_in_time_range(start, end)
-        self.db_manager.create_token_pairs_table(start, end)
         self.db_manager.add_token_pairs(start, end, token_pairs)
         
         return start, end
@@ -403,7 +360,7 @@ class TextValidator(Module):
         start_datetime = miner_prompt.get("start_datetime", None)
         end_datetime = miner_prompt.get("end_datetime", None)
         
-        block_number_start, block_number_end = rust_backend.fetch_block_range(token_a, token_b, token_fee, start_datetime, end_datetime)
+        block_number_start, block_number_end = pool_data_fetcher.fetch_block_range(token_a, token_b, token_fee, start_datetime, end_datetime)
         
         miner_data = miner_answer.get("data", None)
         ANSWER_CHECK_COUNT = 10
@@ -416,7 +373,7 @@ class TextValidator(Module):
             if block_number < block_number_start or block_number > block_number_end:
                 return False
             
-            block_data_from_pool = rust_backend.fetch_block_data_by_block_number(block_number)
+            block_data_from_pool = pool_data_fetcher.fetch_block_data_by_block_number(block_number)
             if block_data_from_pool['hash'] != block_data['hash']:
                 return False
         
