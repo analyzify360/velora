@@ -33,7 +33,7 @@ class Miner(Module):
         token_fee = query.get("fee", None)
         start_datetime = query.get("start_datetime", None)
         end_datetime = query.get("end_datetime", None)
-        result = self.pool_data_fetcher.fetch_pool_data(token_a, token_b, token_fee, start_datetime, end_datetime)
+        result = self.pool_data_fetcher.fetch_pool_data(token_a, token_b, token_fee, start_datetime, end_datetime, "1h")
         
         return json.dumps(result)
 
