@@ -40,6 +40,10 @@ import pool_data_fetcher
 from db.db_manager import DBManager
 
 import random
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 IP_REGEX = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+")
 
@@ -196,6 +200,8 @@ class TextValidator(Module):
         self.call_timeout = call_timeout
         
         self.db_manager = DBManager()
+        
+        self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('BLOCKCHAIN_URL'))
 
     def get_addresses(self, client: CommuneClient, netuid: int) -> dict[int, str]:
         """
@@ -285,7 +291,7 @@ class TextValidator(Module):
         
         self.db_manager.add_timetable_entry(start, end)
         previous_token_pairs = self.db_manager.fetch_token_pairs(last_time_range["start"], last_time_range["end"])
-        token_pairs = pool_data_fetcher.get_pool_created_events_between_two_timestamps(start, end)
+        token_pairs = self.pool_data_fetche.get_pool_created_events_between_two_timestamps(start, end)
         self.db_manager.create_token_pairs_table(start, end)
         self.db_manager.add_token_pairs(start, end, previous_token_pairs)
         self.db_manager.add_token_pairs(start, end, token_pairs)
@@ -360,7 +366,7 @@ class TextValidator(Module):
         start_datetime = miner_prompt.get("start_datetime", None)
         end_datetime = miner_prompt.get("end_datetime", None)
         
-        block_number_start, block_number_end = pool_data_fetcher.get_block_number_range(token_a, token_b, token_fee, start_datetime, end_datetime)
+        block_number_start, block_number_end = self.pool_data_fetcher.get_block_number_range(token_a, token_b, token_fee, start_datetime, end_datetime)
         
         miner_data = miner_answer.get("data", None)
         ANSWER_CHECK_COUNT = 10
@@ -373,7 +379,7 @@ class TextValidator(Module):
             if block_number < block_number_start or block_number > block_number_end:
                 return False
             
-            block_data_from_pool = pool_data_fetcher.get_pool_events_by_token_pairs(token_a, token_b, block_number, block_number, token_fee)
+            block_data_from_pool = self.pool_data_fetcher.get_pool_events_by_token_pairs(token_a, token_b, block_number, block_number, token_fee)
             if block_data_from_pool['hash'] != block_data['hash']:
                 return False
         
