@@ -201,7 +201,7 @@ class TextValidator(Module):
         
         self.db_manager = DBManager()
         
-        self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('BLOCKCHAIN_URL'))
+        self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('ETHEREUM_RPC_NODE_URL'))
 
     def get_addresses(self, client: CommuneClient, netuid: int) -> dict[int, str]:
         """
@@ -286,14 +286,26 @@ class TextValidator(Module):
         Add a new timetable entry to the database.
         """
         last_time_range = self.db_manager.fetch_last_time_range()
-        start = last_time_range["end"]
-        end = last_time_range["end"] + timedelta(days=1)
+        if last_time_range == None:
+            start = datetime(2021, 5, 4, 0, 0, 0)
+            end = datetime(2021, 5, 5, 0, 0, 0)
+        else:
+            start = last_time_range["end"]
+            end = last_time_range["end"] + timedelta(days=1)
         
         self.db_manager.add_timetable_entry(start, end)
-        previous_token_pairs = self.db_manager.fetch_token_pairs(last_time_range["start"], last_time_range["end"])
-        token_pairs = self.pool_data_fetche.get_pool_created_events_between_two_timestamps(start, end)
         self.db_manager.create_token_pairs_table(start, end)
-        self.db_manager.add_token_pairs(start, end, previous_token_pairs)
+        
+        if last_time_range:
+            previous_token_pairs = self.db_manager.fetch_token_pairs(last_time_range["start"], last_time_range["end"])
+            self.db_manager.add_token_pairs(start, end, previous_token_pairs)
+
+        start_date_str = start.strftime("%Y-%m-%d %H:%M:%S")
+        end_date_str = end.strftime("%Y-%m-%d %H:%M:%S")
+        
+        log(f"Fetching token pairs between {start_date_str} and {end_date_str}")
+        
+        token_pairs = self.pool_data_fetcher.get_pool_created_events_between_two_timestamps(start_date_str, end_date_str)
         self.db_manager.add_token_pairs(start, end, token_pairs)
         
         return start, end
