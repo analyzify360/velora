@@ -13,9 +13,10 @@ services:
     networks:
       - postgres_network
 
-  ethereum-node:
-    image: ethereum/client-go:latest
-    container_name: geth-node
+  geth:
+    image: ethereum/client-go:stable
+    container_name: ETH-archive
+    restart: unless-stopped
     ports:
       - 30303:30303
       - 30303:30303/udp
@@ -23,15 +24,18 @@ services:
       - 8546:8546
       - 8551:8551
     volumes:
-      - ethereum-data:/root/.ethereum
-      - ./jwt/jwtsecret:/jwt/jwtsecret
+      - ./data/geth:/root/.ethereum
+      - ./geth-config.toml:/geth-config.toml
+    stop_signal: SIGINT
+    stop_grace_period: 1m
     healthcheck:
       test: [ "CMD-SHELL", "geth attach --exec eth.blockNumber" ]
       interval: 10s
       timeout: 5s
       retries: 5
     command:
-      - --mainnet
+      - --config=/geth-config.toml
+      - --rpc.allow-unprotected-txs
       - --snapshot=false
       - --gcmode=archive
       - --http
@@ -43,14 +47,55 @@ services:
       - --ws.origins=*
       - --ws.addr=0.0.0.0
       - --ws.api=eth,net,web3
-      - --authrpc.jwtsecret=/root/.ethereum/jwt.hex
+      - --graphql
+      - --graphql.corsdomain=*
+      - --graphql.vhosts=*
       - --authrpc.addr=0.0.0.0
-      - --authrpc.port=8551
       - --authrpc.vhosts=*
+      - --authrpc.jwtsecret=/root/.ethereum/jwt.hex
+      - --authrpc.port=8551
+      - --cache=42738   # should be 34% of RAM 
 
-volumes:
-  postgres_data:
-  ethereum-data:
+  prysm:
+    image: gcr.io/prysmaticlabs/prysm/beacon-chain
+    container_name: prysm-beaconchain
+    restart: unless-stopped
+    stop_grace_period: 1m
+    volumes:
+      - ./data/prysm:/data
+      - ./data/geth/jwt.hex:/geth/jwt.hex
+    depends_on:
+      geth:
+        condition: service_healthy
+    ports:
+      - 4000:4000
+      - 3500:3500
+    command:
+      - --accept-terms-of-use
+      - --datadir=/data
+      - --disable-monitoring
+      - --rpc-host=0.0.0.0
+      - --execution-endpoint=http://99.97.0.1:8551
+      - --jwt-secret=/geth/jwt.hex
+      - --rpc-host=0.0.0.0
+      - --rpc-port=4000
+      - --grpc-gateway-corsdomain=*
+      - --grpc-gateway-host=0.0.0.0
+      - --grpc-gateway-port=3500
+      - --min-sync-peers=7
+      - --historical-slasher-node=true
+      - --checkpoint-sync-url=https://sync.invis.tools
+      - --genesis-beacon-api-url=https://sync.invis.tools
+      - --suggested-fee-recipient=0xAba865A6826Ba0F02989Ea825084Aa8A5D71b723
+
 
 networks:
   postgres_network:
+  default:
+    ipam:
+      driver: default
+      config:
+        - subnet: 99.97.0.0/16
+
+volumes:
+  postgres_data:
