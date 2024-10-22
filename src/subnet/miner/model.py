@@ -23,7 +23,7 @@ class Miner(Module):
     def __init__(self) -> None:
         super().__init__()
         
-        self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('BLOCKCHAIN_URL'))
+        self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('ETHEREUM_RPC_NODE_URL'))
 
     @endpoint
     def fetch(self, query: dict[str, str, str, str]) -> str:
