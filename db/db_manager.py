@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Float, Integer, inspect
+from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Float, Integer, inspect, insert
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from typing import Union, List, Dict
@@ -14,20 +14,20 @@ class Timetable(Base):
     end = Column(Date)
     completed = Column(Boolean)
 
-token_pairs_table_columns = [
+def token_pairs_table_columns(): return [
     Column('token_a', String),
     Column('token_b', String),
     Column('fee', Float),
     Column('completed', Boolean)
 ]
 
-pool_data_table_columns = [
+def pool_data_table_columns(): return [
     Column('block_number', String),
     Column('event_type', String),
     Column('transaction_hash', String)
 ]
 
-swap_event_table_columns = [
+def swap_event_table_columns(): return [
     Column('transaction_hash', String),
     Column('sender', String),
     Column('to', String),
@@ -38,7 +38,7 @@ swap_event_table_columns = [
     Column('tick', Integer)  # i32 can be stored as Integer
 ]
 
-mint_event_table_columns = [
+def mint_event_table_columns(): return [
     Column('transaction_hash', String),
     Column('sender', String),
     Column('owner', String),
@@ -49,7 +49,7 @@ mint_event_table_columns = [
     Column('amount1', String)  # U256 can be stored as String
 ]
 
-burn_event_table_columns = [
+def burn_event_table_columns(): return [
     Column('transaction_hash', String),
     Column('owner', String),
     Column('tick_lower', Integer),  # int24 can be stored as Integer
@@ -59,7 +59,7 @@ burn_event_table_columns = [
     Column('amount1', String)  # U256 can be stored as String
 ]
 
-collect_event_table_columns = [
+def collect_event_table_columns(): return [
     Column('transaction_hash', String),
     Column('owner', String),
     Column('recipient', String),
@@ -131,7 +131,7 @@ class DBManager:
         """Create a new token pairs table for the specified time range."""
         new_table_name = f'token_pairs_{start}_{end}'
         metadata = MetaData()
-        columns = token_pairs_table_columns.copy()
+        columns = token_pairs_table_columns()
         
         new_table = Table(
             new_table_name,
@@ -159,7 +159,7 @@ class DBManager:
         table = Table(table_name, MetaData(), autoload_with=self.engine)
         
         insert_values = [
-            {'token_a': token_pair['token_a'], 'token_b': token_pair['token_b'], 'fee': token_pair['fee'], 'completed': False}
+            {'token_a': token_pair['token0'], 'token_b': token_pair['token1'], 'fee': token_pair['fee'], 'completed': False}
             for token_pair in token_pairs
         ]
         
@@ -206,7 +206,7 @@ class DBManager:
         """Create a new pool data table."""
         new_table_name = f'pool_data_{token_a}_{token_b}_{fee}'
         metadata = MetaData()
-        columns = pool_data_table_columns.copy()
+        columns = pool_data_table_columns()
         
         new_table = Table(
             new_table_name,
@@ -229,7 +229,7 @@ class DBManager:
         """Create a new swap event table."""
         new_table_name = f'swap_event_{token_a}_{token_b}_{fee}'
         metadata = MetaData()
-        columns=swap_event_table_columns.copy()
+        columns=swap_event_table_columns()
         
         new_table = Table(
             new_table_name,
@@ -247,7 +247,7 @@ class DBManager:
         """Create a new mint event table."""
         new_table_name = f'mint_event_{token_a}_{token_b}_{fee}'
         metadata = MetaData()
-        columns = mint_event_table_columns.copy()
+        columns = mint_event_table_columns()
         
         new_table = Table(
             new_table_name,
@@ -265,7 +265,7 @@ class DBManager:
         """Create a new burn event table."""
         new_table_name = f'burn_event_{token_a}_{token_b}_{fee}'
         metadata = MetaData()
-        columns = burn_event_table_columns.copy()
+        columns = burn_event_table_columns()
         
         new_table = Table(
             new_table_name,
@@ -283,7 +283,7 @@ class DBManager:
         """Create a new collect event table."""
         new_table_name = f'collect_event_{token_a}_{token_b}_{fee}'
         metadata = MetaData()
-        columns = collect_event_table_columns.copy()
+        columns = collect_event_table_columns()
         
         new_table = Table(
             new_table_name,
