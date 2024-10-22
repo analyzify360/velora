@@ -17,7 +17,7 @@ class Timetable(Base):
 def token_pairs_table_columns(): return [
     Column('token_a', String),
     Column('token_b', String),
-    Column('fee', Float),
+    Column('fee', Integer),
     Column('completed', Boolean)
 ]
 
@@ -188,7 +188,7 @@ class DBManager:
             completed_data = conn.execute(table.select().where(table.c.completed == False)).fetchall()
             return [{"token_a": row.token_a, "token_b": row.token_b, "fee": row.fee, "completed": row.completed} for row in completed_data]
 
-    def mark_token_pair_as_complete(self, start: Date, end: Date, token_a: str, token_b: str, fee: float) -> bool:
+    def mark_token_pair_as_complete(self, start: Date, end: Date, token_a: str, token_b: str, fee: int) -> bool:
         """Mark a token pair as complete."""
         table_name = f'token_pairs_{start}_{end}'
         self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
@@ -203,7 +203,7 @@ class DBManager:
                 return True
             return False
 
-    def create_pool_data_table(self, token_a: str, token_b: str, fee: float) -> Table:
+    def create_pool_data_table(self, token_a: str, token_b: str, fee: int) -> Table:
         """Create a new pool data table."""
         new_table_name = f'pool_data_{token_a}_{token_b}_{fee}'
         metadata = MetaData()
@@ -226,7 +226,7 @@ class DBManager:
             print(f"Error creating table {new_table_name}: {e}")
         return new_table
 
-    def create_swap_event_table(self, token_a: str, token_b: str, fee: float) -> Table:
+    def create_swap_event_table(self, token_a: str, token_b: str, fee: int) -> Table:
         """Create a new swap event table."""
         new_table_name = f'swap_event_{token_a}_{token_b}_{fee}'
         metadata = MetaData()
@@ -244,7 +244,7 @@ class DBManager:
             print(f"Error creating table {new_table_name}: {e}")
         return new_table
 
-    def create_mint_event_table(self, token_a: str, token_b: str, fee: float) -> Table:
+    def create_mint_event_table(self, token_a: str, token_b: str, fee: int) -> Table:
         """Create a new mint event table."""
         new_table_name = f'mint_event_{token_a}_{token_b}_{fee}'
         metadata = MetaData()
@@ -262,7 +262,7 @@ class DBManager:
             print(f"Error creating table {new_table_name}: {e}")
         return new_table
 
-    def create_burn_event_table(self, token_a: str, token_b: str, fee: float) -> Table:
+    def create_burn_event_table(self, token_a: str, token_b: str, fee: int) -> Table:
         """Create a new burn event table."""
         new_table_name = f'burn_event_{token_a}_{token_b}_{fee}'
         metadata = MetaData()
@@ -280,7 +280,7 @@ class DBManager:
             print(f"Error creating table {new_table_name}: {e}")
         return new_table
 
-    def create_collect_event_table(self, token_a: str, token_b: str, fee: float) -> Table:
+    def create_collect_event_table(self, token_a: str, token_b: str, fee: int) -> Table:
         """Create a new collect event table."""
         new_table_name = f'collect_event_{token_a}_{token_b}_{fee}'
         metadata = MetaData()
@@ -298,7 +298,7 @@ class DBManager:
             print(f"Error creating table {new_table_name}: {e}")
         return new_table
 
-    def add_pool_data(self, token_a: str, token_b: str, fee: float, pool_data: List[Dict]) -> None:
+    def add_pool_data(self, token_a: str, token_b: str, fee: int, pool_data: List[Dict]) -> None:
         """Add pool data to the pool data table and related event tables."""
         # Add the pool data to the pool data table
         table_name = f'pool_data_{token_a}_{token_b}_{fee}'

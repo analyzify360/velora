@@ -342,7 +342,7 @@ class TextValidator(Module):
             return None
         return token_pairs[0]
 
-    def get_miner_prompt(self) -> dict[str, str, str, str]:
+    def get_miner_prompt(self) -> dict:
         """
         Generate a prompt for the miner modules.
 
@@ -359,10 +359,11 @@ class TextValidator(Module):
         # Implement your custom prompt generation logic here
         token_a=token_pair["token_a"]
         token_b=token_pair["token_b"]
-        token_fee=token_pair["fee"]
+        token_fee=f'{token_pair["fee"]}'
         start_datetime=time_range[0].strftime("%Y-%m-%d %H:%M:%S")
         end_datetime=time_range[1].strftime("%Y-%m-%d %H:%M:%S")
-        return {"token_a": token_a, "token_b": token_b, "token_fee": token_fee, "start_datetime": start_datetime, "end_datetime": end_datetime}
+        print(f"Prompting miners with token pair {type(token_a)} {type(token_b)} {type(token_fee)} {type(start_datetime)} {type(end_datetime)}")
+        return {"token_a": token_a, "token_b": token_b, "fee": token_fee, "start_datetime": start_datetime, "end_datetime": end_datetime}
         
     def check_miner_answer(self, miner_prompt: dict, miner_answer: dict | None) -> bool:
         """
@@ -489,9 +490,11 @@ class TextValidator(Module):
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             it = executor.map(get_miner_prediction, modules_info.values())
             miner_answers = [*it]
-            print(miner_answers)
         
         miner_results = zip(modules_info.keys(), miner_answers)
+        if not miner_results:
+            log("No miner managed to give an answer")
+            return None
         
         overall_hashes = [miner_answer['overall_hash'] for miner_answer in miner_answers]
         most_common_hash = max(set(overall_hashes), key=overall_hashes.count)
