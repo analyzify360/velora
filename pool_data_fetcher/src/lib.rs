@@ -21,6 +21,10 @@ use pyo3::types::{PyList, PyDict};
 const NUM_BLOCKS: u64 = 100; // Number of blocks to consider for average block time calculation
 const FACTORY_ADDRESS: &str = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
 const POOL_CREATED_SIGNATURE: &str = "0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118";
+const SWAP_EVENT_SIGNATURE: &str = "c42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67";
+const MINT_EVENT_SIGNATURE: &str = "7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde";
+const BURN_EVENT_SIGNATURE: &str = "0c396cd989a39f4459b5fa1aed6a9a8dcdbc45908acfd67e028cd568da98982c";
+const COLLECT_EVENT_SIGNATURE: &str = "70935338e69775456a85ddef226c395fb668b63fa0115f5f20610b388e6ca9c0";
 
 struct PyValue(Value);
 
@@ -127,10 +131,10 @@ impl EthLogDecode for UniswapEvent {
 
 fn decode_uniswap_event(log: &Log) -> Result<(UniswapEvent, H256, u64), Box<dyn std::error::Error + Send + Sync>> {
     // Event signatures for Uniswap V3 pool events
-    let swap_signature = H256::from_slice(&hex::decode("c42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67").unwrap());
-    let mint_signature = H256::from_slice(&hex::decode("7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde").unwrap());
-    let burn_signature = H256::from_slice(&hex::decode("0c396cd989a39f4459b5fa1aed6a9a8dcdbc45908acfd67e028cd568da98982c").unwrap());
-    let collect_signature = H256::from_slice(&hex::decode("70935338e69775456a85ddef226c395fb668b63fa0115f5f20610b388e6ca9c0").unwrap());
+    let swap_signature = H256::from_slice(&hex::decode(SWAP_EVENT_SIGNATURE).unwrap());
+    let mint_signature = H256::from_slice(&hex::decode(MINT_EVENT_SIGNATURE).unwrap());
+    let burn_signature = H256::from_slice(&hex::decode(BURN_EVENT_SIGNATURE).unwrap());
+    let collect_signature = H256::from_slice(&hex::decode(COLLECT_EVENT_SIGNATURE).unwrap());
 
     // Parse the raw log data
     let raw_log = RawLog {
@@ -249,7 +253,13 @@ async fn get_pool_events_by_pool_address(
     let filter = Filter::new()
         .address(pool_address)
         .from_block(from_block)
-        .to_block(to_block);
+        .to_block(to_block)
+        .topic0(vec![
+            H256::from_str(SWAP_EVENT_SIGNATURE).unwrap(),
+            H256::from_str(MINT_EVENT_SIGNATURE).unwrap(),
+            H256::from_str(BURN_EVENT_SIGNATURE).unwrap(),
+            H256::from_str(COLLECT_EVENT_SIGNATURE).unwrap(),
+        ]);
     println!("from_block: {:?}, to_block: {:?}", from_block, to_block);
     let logs = provider.get_logs(&filter).await?;
     
