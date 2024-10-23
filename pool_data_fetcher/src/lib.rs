@@ -33,7 +33,7 @@ impl IntoPy<PyObject> for PyValue {
         match self.0 {
             Value::Null => py.None(),
             Value::Bool(b) => b.into_py(py),
-            Value::Number(n) => n.as_u64().unwrap().into_py(py),
+            Value::Number(n) => n.as_i64().unwrap().into_py(py),
             Value::String(s) => s.into_py(py),
             Value::Array(a) => {
                 let py_list = PyList::empty(py);
