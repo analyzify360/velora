@@ -30,7 +30,7 @@ class Miner(Module):
         print(f'type of query: {type(query)}')
         token0 = query.get("token0", None)
         token1 = query.get("token1", None)
-        fee = int(query.get("fee", None))
+        fee = int(query.get("fee", 0))
         start_datetime = query.get("start_datetime", None)
         end_datetime = query.get("end_datetime", None)
         result = self.pool_data_fetcher.fetch_pool_data(token0, token1, fee, start_datetime, end_datetime, "1h")

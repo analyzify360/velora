@@ -258,7 +258,7 @@ class VeloraValidator(Module):
             miner_answer = None
         return miner_answer
 
-    def _score_miner(self, miner_prompt: dict, miner_answer: dict | None, ground_truth: dict) -> float:
+    def _score_miner(self, miner_answer: dict | None, ground_truth: dict) -> float:
         """
         Score the generated answer against the validator's own answer.
 
@@ -359,7 +359,7 @@ class VeloraValidator(Module):
         # Implement your custom prompt generation logic here
         token0=token_pair["token0"]
         token1=token_pair["token1"]
-        fee=f'{token_pair["fee"]}'
+        fee=int(token_pair["fee"])
         start_datetime=time_range[0].strftime("%Y-%m-%d %H:%M:%S")
         end_datetime=time_range[1].strftime("%Y-%m-%d %H:%M:%S")
 
@@ -435,8 +435,7 @@ class VeloraValidator(Module):
             trust_miner_results: The results of the trusted miner module.
         """
         accuracy_score: dict[int, float] = {}
-        for uid, miner_response in miner_results:
-            miner_answer = miner_response
+        for uid, miner_answer in miner_results:
             if not miner_answer:
                 log(f"Skipping miner {uid} that didn't answer")
                 continue
@@ -503,6 +502,7 @@ class VeloraValidator(Module):
         if not miner_results:
             log("No miner managed to give an answer")
             return None
+        
         overall_hashes = [miner_answer['overall_data_hash'] for miner_answer in miner_answers if miner_answer != None]
         if not overall_hashes:
             log("No miner managed to give a valid answer")

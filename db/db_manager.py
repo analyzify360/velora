@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Float, Integer, inspect, insert
+from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, inspect, insert
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from typing import Union, List, Dict
@@ -157,8 +157,9 @@ class DBManager:
             return func(**args)
         print(f'table {table_name} already exists')
 
-    def add_token_pairs(self, start: str, end: str, token_pairs: List[Dict[str, Union[str, float]]]) -> None:
+    def add_token_pairs(self, start: str, end: str, token_pairs: List[Dict[str, Union[str, int]]]) -> None:
         """Add token pairs to the corresponding table."""
+        start, date = self.date_normalize(start, end)
         table_name = f'token_pairs_{start}_{end}'
         self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
         table = Table(table_name, MetaData(), autoload_with=self.engine)
@@ -191,7 +192,7 @@ class DBManager:
         return start, end       
         
 
-    def fetch_token_pairs(self, start: Date, end: Date) -> List[Dict[str, Union[str, float, bool]]]:
+    def fetch_token_pairs(self, start: Date, end: Date) -> List[Dict[str, Union[str, int, bool]]]:
         """Fetch all token pairs from the corresponding table."""
         start, end = self.date_normalize(start, end)
         table_name = f'token_pairs_{start}_{end}'
@@ -202,7 +203,7 @@ class DBManager:
             token_pairs_data = conn.execute(table.select()).fetchall()
             return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed} for row in token_pairs_data]
 
-    def fetch_incompleted_token_pairs(self, start: str, end: str) -> List[Dict[str, Union[str, float, bool]]]:
+    def fetch_incompleted_token_pairs(self, start: str, end: str) -> List[Dict[str, Union[str, int, bool]]]:
         """Fetch all incompleted token pairs from the corresponding table."""
         start, end = self.date_normalize(start, end)
         table_name = f'token_pairs_{start}_{end}'
