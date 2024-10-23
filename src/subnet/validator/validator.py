@@ -375,7 +375,7 @@ class VeloraValidator(Module):
         """
         token_a = miner_prompt.get("token_a", None)
         token_b = miner_prompt.get("token_b", None)
-        token_fee = miner_prompt.get("token_fee", None)
+        token_fee = int(miner_prompt.get("fee", None))
         start_datetime = miner_prompt.get("start_datetime", None)
         end_datetime = miner_prompt.get("end_datetime", None)
         
@@ -394,11 +394,11 @@ class VeloraValidator(Module):
             if block_number < block_number_start or block_number > block_number_end:
                 return False
             
-            block_data_from_pool = self.pool_data_fetcher.get_pool_events_by_token_pairs(token_a, token_b, block_number, block_number, token_fee)
-            if block_data_from_pool['hash'] != block_data['hash']:
-                return False
-        
-        return True
+            block_data_from_pools = self.pool_data_fetcher.get_pool_events_by_token_pairs(token_a, token_b, block_number, block_number, token_fee)
+            for block_data_of_pool in block_data_from_pools.get("data", []):
+                if block_data_of_pool.get("transaction_hash") == block_data.get("transaction_hash"):
+                    return True
+        return False
 
     def save_pool_data(self, miner_prompt: dict, miner_answer: dict) -> None:
         """
@@ -410,7 +410,7 @@ class VeloraValidator(Module):
         """
         token_a = miner_prompt.get("token_a", None)
         token_b = miner_prompt.get("token_b", None)
-        token_fee = miner_prompt.get("token_fee", None)
+        token_fee = miner_prompt.get("fee", None)
         start_datetime = miner_prompt.get("start_datetime", None)
         end_datetime = miner_prompt.get("end_datetime", None)
         
@@ -497,8 +497,10 @@ class VeloraValidator(Module):
         if not miner_results:
             log("No miner managed to give an answer")
             return None
-        
         overall_hashes = [miner_answer['overall_data_hash'] for miner_answer in miner_answers if miner_answer != None]
+        if not overall_hashes:
+            log("No miner managed to give a valid answer")
+            return None
         most_common_hash = max(set(overall_hashes), key=overall_hashes.count)
         
         trust_miner_results = [(key, miner_answer) for key, miner_answer in miner_results if miner_answer !=None and miner_answer['overall_data_hash'] == most_common_hash]
