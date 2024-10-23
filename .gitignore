@@ -20,3 +20,4 @@ pool_data_fetcher/target/
 jwt/
 rust_backend/target/
 jwt/
+/config.toml
