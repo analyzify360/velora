@@ -129,6 +129,7 @@ class DBManager:
 
     def create_token_pairs_table(self, start: Date, end: Date) -> Table:
         """Create a new token pairs table for the specified time range."""
+                
         new_table_name = f'token_pairs_{start}_{end}'
         metadata = MetaData()
         columns = token_pairs_table_columns()
@@ -150,7 +151,9 @@ class DBManager:
         inspector = inspect(self.engine)
         
         if table_name not in inspector.get_table_names():
+            print(f'creating table {table_name}')
             return func(**args)
+        print(f'table {table_name} already exists')
 
     def add_token_pairs(self, start: Date, end: Date, token_pairs: List[Dict[str, Union[str, float]]]) -> None:
         """Add token pairs to the corresponding table."""
@@ -300,9 +303,12 @@ class DBManager:
 
     def add_pool_data(self, token_a: str, token_b: str, fee: int, pool_data: List[Dict]) -> None:
         """Add pool data to the pool data table and related event tables."""
+        token_a = token_a[-4:]
+        token_b = token_b[-4:]
+        
         # Add the pool data to the pool data table
         table_name = f'pool_data_{token_a}_{token_b}_{fee}'
-        self.ensure_table_exists(table_name, self.create_collect_event_table, token_a=token_a, token_b=token_b, fee=fee)
+        self.ensure_table_exists(table_name, self.create_pool_data_table, token_a=token_a, token_b=token_b, fee=fee)
         table = Table(table_name, MetaData(), autoload_with=self.engine)
 
         insert_values = [
@@ -317,6 +323,7 @@ class DBManager:
 
         # Add the swap event data to the swap event tables
         swap_table_name = f'swap_event_{token_a}_{token_b}_{fee}'
+        self.ensure_table_exists(table_name, self.create_swap_event_table, token_a=token_a, token_b=token_b, fee=fee)
         swap_table = Table(swap_table_name, MetaData(), autoload_with=self.engine)
 
         swap_event_data = [
@@ -330,6 +337,7 @@ class DBManager:
 
         # Add the mint event data to the mint event tables
         mint_table_name = f'mint_event_{token_a}_{token_b}_{fee}'
+        self.ensure_table_exists(table_name, self.create_mint_event_table, token_a=token_a, token_b=token_b, fee=fee)
         mint_table = Table(mint_table_name, MetaData(), autoload_with=self.engine)
 
         mint_event_data = [
@@ -343,6 +351,7 @@ class DBManager:
 
         # Add the burn event data to the burn event tables
         burn_table_name = f'burn_event_{token_a}_{token_b}_{fee}'
+        self.ensure_table_exists(table_name, self.create_burn_event_table, token_a=token_a, token_b=token_b, fee=fee)
         burn_table = Table(burn_table_name, MetaData(), autoload_with=self.engine)
 
         burn_event_data = [
@@ -356,6 +365,7 @@ class DBManager:
 
         # Add the collect event data to the collect event tables
         collect_table_name = f'collect_event_{token_a}_{token_b}_{fee}'
+        self.ensure_table_exists(table_name, self.create_collect_event_table, token_a=token_a, token_b=token_b, fee=fee)
         collect_table = Table(collect_table_name, MetaData(), autoload_with=self.engine)
 
         collect_event_data = [

@@ -287,8 +287,8 @@ class VeloraValidator(Module):
         """
         last_time_range = self.db_manager.fetch_last_time_range()
         if last_time_range == None:
-            start = datetime(2021, 5, 4, 0, 0, 0)
-            end = datetime(2021, 5, 5, 0, 0, 0)
+            start = datetime(2021, 5, 4)
+            end = datetime(2021, 5, 5)
         else:
             start = last_time_range["end"]
             end = last_time_range["end"] + timedelta(days=1)
@@ -414,8 +414,10 @@ class VeloraValidator(Module):
         start_datetime = miner_prompt.get("start_datetime", None)
         end_datetime = miner_prompt.get("end_datetime", None)
         
+        miner_data = miner_answer.get("data", None)
+        
         self.db_manager.create_pool_data_table(token_a, token_b, token_fee)
-        self.db_manager.add_pool_data(token_a, token_b, token_fee, miner_answer)
+        self.db_manager.add_pool_data(token_a, token_b, token_fee, miner_data)
         
         self.db_manager.mark_token_pair_as_complete(start_datetime, end_datetime, token_a, token_b, token_fee)
         

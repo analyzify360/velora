@@ -31,7 +31,7 @@ def serve(
     app = server.get_fastapi_app()
 
     # Only allow local connections
-    uvicorn.run(app, host="0.0.0.0", port=9960)
+    uvicorn.run(app, host="0.0.0.0", port=14101)
 
 if __name__ == "__main__":
     typer.run(serve)
