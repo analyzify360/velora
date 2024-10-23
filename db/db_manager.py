@@ -91,7 +91,7 @@ class DBManager:
         # Don't forget to close the session
         self.session.close()
     
-    def add_timetable_entry(self, start: str, end: str) -> None:
+    def add_timetable_entry(self, start: Date, end: Date) -> None:
         """Add a new timetable entry to the database."""
         with self.Session() as session:
             new_entry = Timetable(start=start, end=end, completed=False)
@@ -119,7 +119,7 @@ class DBManager:
             else:
                 return None
 
-    def mark_time_range_as_complete(self, start: str, end: str) -> bool:
+    def mark_time_range_as_complete(self, start: Date, end: Date) -> bool:
         """Mark a timetable entry as complete."""
         with self.Session() as session:
             record = session.query(Timetable).filter_by(start=start, end=end).first()
@@ -129,7 +129,7 @@ class DBManager:
                 return True
             return False
 
-    def create_token_pairs_table(self, start: str, end: str) -> Table:
+    def create_token_pairs_table(self, start: Date, end: Date) -> Table:
         """Create a new token pairs table for the specified time range."""
         start, end = self.date_normalize(start, end)
                 
@@ -158,11 +158,11 @@ class DBManager:
             return func(**args)
         print(f'table {table_name} already exists')
 
-    def add_token_pairs(self, start: str, end: str, token_pairs: List[Dict[str, Union[str, int]]]) -> None:
+    def add_token_pairs(self, start: Date, end: Date, token_pairs: List[Dict[str, Union[str, int]]]) -> None:
         """Add token pairs to the corresponding table."""
         start, end = self.date_normalize(start, end)
         table_name = f'token_pairs_{start}_{end}'
-        self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
+        # self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
         table = Table(table_name, MetaData(), autoload_with=self.engine)
         
         insert_values = [
@@ -175,16 +175,16 @@ class DBManager:
             session.execute(insert_query)
             session.commit()
     
-    def date_normalize(self, start: str, end: str) -> tuple:
+    def date_normalize(self, start: Date, end: Date) -> tuple:
         if isinstance(start, str):
-            start = start.replace("T", " ")
+            start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
         elif isinstance(start, datetime):
             start = start.strftime("%Y-%m-%d")
         elif isinstance(start, Date):
             start = start.strftime("%Y-%m-%d")
         
         if isinstance(end, str):
-            end = end.replace("T", " ")
+            end = datetime.strptime(end, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
         elif isinstance(end, datetime):
             end = end.strftime("%Y-%m-%d")
         elif isinstance(end, Date):
@@ -197,29 +197,29 @@ class DBManager:
         """Fetch all token pairs from the corresponding table."""
         start, end = self.date_normalize(start, end)
         table_name = f'token_pairs_{start}_{end}'
-        self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
+        # self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
         table = Table(table_name, MetaData(), autoload_with=self.engine)
         
         with self.engine.connect() as conn:
             token_pairs_data = conn.execute(table.select()).fetchall()
             return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed} for row in token_pairs_data]
 
-    def fetch_incompleted_token_pairs(self, start: str, end: str) -> List[Dict[str, Union[str, int, bool]]]:
+    def fetch_incompleted_token_pairs(self, start: Date, end: Date) -> List[Dict[str, Union[str, int, bool]]]:
         """Fetch all incompleted token pairs from the corresponding table."""
         start, end = self.date_normalize(start, end)
         table_name = f'token_pairs_{start}_{end}'
-        self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
+        # self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
         table = Table(table_name, MetaData(), autoload_with=self.engine)
         
         with self.engine.connect() as conn:
             completed_data = conn.execute(table.select().where(table.c.completed == False)).fetchall()
             return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed} for row in completed_data]
 
-    def mark_token_pair_as_complete(self, start: str, end: str, token0: str, token1: str, fee: int) -> bool:
+    def mark_token_pair_as_complete(self, start: Date, end: Date, token0: str, token1: str, fee: int) -> bool:
         """Mark a token pair as complete."""
         start, end = self.date_normalize(start, end)
         table_name = f'token_pairs_{start}_{end}'
-        self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
+        # self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
         table = Table(table_name, MetaData(), autoload_with=self.engine)
         
         with self.engine.connect() as conn:

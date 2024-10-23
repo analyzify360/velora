@@ -277,7 +277,7 @@ class VeloraValidator(Module):
         cnt_correct_entry = sum([int(miner_answer["data"][i]["transaction_hash"] == ground_truth["data"][i]["transaction_hash"]) for i in range(len(miner_answer["data"]))])
         cnt_all = len(miner_answer["data"])
         
-        accuracy_score = ((cnt_correct_entry - cnt_all * 0.75) / cnt_all * 4) ^ 3
+        accuracy_score = ((cnt_correct_entry - cnt_all * 0.75) / cnt_all * 4) ** 3
 
         return accuracy_score
     
@@ -435,28 +435,28 @@ class VeloraValidator(Module):
             trust_miner_results: The results of the trusted miner module.
         """
         accuracy_score: dict[int, float] = {}
-        for uid, miner_answer in miner_results:
+        for key, miner_answer in miner_results:
             if not miner_answer:
-                log(f"Skipping miner {uid} that didn't answer")
+                log(f"Skipping miner {key} that didn't answer")
                 continue
 
             score = self._score_miner(miner_answer, trust_miner_result)
             time.sleep(0.5)
-            print(f"uid: {uid} miner_answer: {miner_answer} score: {score}")
+            print(f"key: {key} miner_answer: {miner_answer} score: {score}")
             # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
             assert score <= 1
-            accuracy_score[uid] = score
+            accuracy_score[key] = score
         
         process_time_score = {}
-        for uid, miner_answer in miner_results:
-            process_time_score[uid] = miner_answer["process_time"].total_seconds()
+        for key, miner_answer in miner_results:
+            process_time_score[key] = miner_answer["process_time"].total_seconds()
             
         print(f'process_time_score: {process_time_score}')
         max_time = max(process_time_score.values())
         min_time = min(process_time_score.values())
-        process_time_score = {uid: 1 - 0.5 * (process_time - min_time) / (max_time - min_time) for uid, process_time in process_time_score.items()}
+        process_time_score = {key: 1 - 0.5 * (process_time - min_time) / (max_time - min_time) for key, process_time in process_time_score.items()}
         
-        overall_score = {uid: (accuracy_score[uid] + process_time_score[uid]) / 2 for uid in accuracy_score.keys()}
+        overall_score = {key: (accuracy_score[key] + process_time_score[key]) / 2 for key in accuracy_score.keys()}
         return overall_score
     
     async def validate_step(
@@ -499,7 +499,7 @@ class VeloraValidator(Module):
             it = executor.map(get_miner_prediction, modules_info.values())
             miner_answers = [*it]
         
-        miner_results = zip(modules_info.keys(), miner_answers)
+        miner_results = list(zip(modules_info.keys(), miner_answers))
         if not miner_results:
             log("No miner managed to give an answer")
             return None
