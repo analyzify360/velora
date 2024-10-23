@@ -6,7 +6,7 @@ from communex.client import CommuneClient  # type: ignore
 from communex.compat.key import classic_load_key  # type: ignore
 
 from src.subnet.validator._config import ValidatorSettings
-from src.subnet.validator.validator import get_subnet_netuid, TextValidator
+from src.subnet.validator.validator import get_subnet_netuid, VeloraValidator
 
 app = typer.Typer()
 
@@ -23,7 +23,7 @@ def serve(
 
     c_client = CommuneClient(get_node_url(use_testnet=True))
     subnet_uid = get_subnet_netuid(c_client, "velora")
-    validator = TextValidator(
+    validator = VeloraValidator(
         keypair,
         subnet_uid,
         c_client,
