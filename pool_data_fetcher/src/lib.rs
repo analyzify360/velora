@@ -21,6 +21,10 @@ use pyo3::types::{PyList, PyDict};
 const NUM_BLOCKS: u64 = 100; // Number of blocks to consider for average block time calculation
 const FACTORY_ADDRESS: &str = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
 const POOL_CREATED_SIGNATURE: &str = "0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118";
+const SWAP_EVENT_SIGNATURE: &str = "c42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67";
+const MINT_EVENT_SIGNATURE: &str = "7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde";
+const BURN_EVENT_SIGNATURE: &str = "0c396cd989a39f4459b5fa1aed6a9a8dcdbc45908acfd67e028cd568da98982c";
+const COLLECT_EVENT_SIGNATURE: &str = "70935338e69775456a85ddef226c395fb668b63fa0115f5f20610b388e6ca9c0";
 
 struct PyValue(Value);
 
@@ -29,7 +33,7 @@ impl IntoPy<PyObject> for PyValue {
         match self.0 {
             Value::Null => py.None(),
             Value::Bool(b) => b.into_py(py),
-            Value::Number(n) => n.as_f64().unwrap().into_py(py),
+            Value::Number(n) => n.as_i64().unwrap().into_py(py),
             Value::String(s) => s.into_py(py),
             Value::Array(a) => {
                 let py_list = PyList::empty(py);
@@ -127,10 +131,10 @@ impl EthLogDecode for UniswapEvent {
 
 fn decode_uniswap_event(log: &Log) -> Result<(UniswapEvent, H256, u64), Box<dyn std::error::Error + Send + Sync>> {
     // Event signatures for Uniswap V3 pool events
-    let swap_signature = H256::from_slice(&hex::decode("c42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67").unwrap());
-    let mint_signature = H256::from_slice(&hex::decode("7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde").unwrap());
-    let burn_signature = H256::from_slice(&hex::decode("0c396cd989a39f4459b5fa1aed6a9a8dcdbc45908acfd67e028cd568da98982c").unwrap());
-    let collect_signature = H256::from_slice(&hex::decode("70935338e69775456a85ddef226c395fb668b63fa0115f5f20610b388e6ca9c0").unwrap());
+    let swap_signature = H256::from_slice(&hex::decode(SWAP_EVENT_SIGNATURE).unwrap());
+    let mint_signature = H256::from_slice(&hex::decode(MINT_EVENT_SIGNATURE).unwrap());
+    let burn_signature = H256::from_slice(&hex::decode(BURN_EVENT_SIGNATURE).unwrap());
+    let collect_signature = H256::from_slice(&hex::decode(COLLECT_EVENT_SIGNATURE).unwrap());
 
     // Parse the raw log data
     let raw_log = RawLog {
@@ -193,9 +197,9 @@ impl BlockchainClient {
         BlockchainClient { provider }
     }
 
-    fn get_pool_events_by_token_pairs(&self, py: Python, token_a: String, token_b: String, from_block: u64, to_block: u64, fee: u32) -> PyResult<PyObject> {
+    fn get_pool_events_by_token_pairs(&self, py: Python, token0: String, token1: String, from_block: u64, to_block: u64, fee: u32) -> PyResult<PyObject> {
         let rt = Runtime::new().unwrap();
-        match rt.block_on(get_pool_events_by_token_pairs(self.provider.clone(), &token_a, &token_b, U64::from(from_block), U64::from(to_block), fee)) {
+        match rt.block_on(get_pool_events_by_token_pairs(self.provider.clone(), &token0, &token1, U64::from(from_block), U64::from(to_block), fee)) {
             Ok(result) => Ok(PyValue(serde_json::json!(result)).into_py(py)),
             Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -207,9 +211,9 @@ impl BlockchainClient {
         (result.0.as_u64(), result.1.as_u64())
     }
 
-    fn fetch_pool_data(&self, py: Python, token_a: String, token_b: String, fee:u32, start_datetime: String, end_datetime: String, interval: String) -> PyResult<PyObject> {
+    fn fetch_pool_data(&self, py: Python, token0: String, token1: String, fee:u32, start_datetime: String, end_datetime: String, interval: String) -> PyResult<PyObject> {
         let rt = Runtime::new().unwrap();
-        match rt.block_on(fetch_pool_data(self.provider.clone(), &token_a, &token_b, fee, &start_datetime, &end_datetime, &interval)) {
+        match rt.block_on(fetch_pool_data(self.provider.clone(), &token0, &token1, fee, &start_datetime, &end_datetime, &interval)) {
             Ok(result) => Ok(PyValue(result).into_py(py)),
             Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -249,7 +253,13 @@ async fn get_pool_events_by_pool_address(
     let filter = Filter::new()
         .address(pool_address)
         .from_block(from_block)
-        .to_block(to_block);
+        .to_block(to_block)
+        .topic0(vec![
+            H256::from_str(SWAP_EVENT_SIGNATURE).unwrap(),
+            H256::from_str(MINT_EVENT_SIGNATURE).unwrap(),
+            H256::from_str(BURN_EVENT_SIGNATURE).unwrap(),
+            H256::from_str(COLLECT_EVENT_SIGNATURE).unwrap(),
+        ]);
     println!("from_block: {:?}, to_block: {:?}", from_block, to_block);
     let logs = provider.get_logs(&filter).await?;
     
@@ -258,8 +268,8 @@ async fn get_pool_events_by_pool_address(
 
 async fn get_pool_events_by_token_pairs(
     provider: Arc<Provider<Http>>,
-    token_a: &str,
-    token_b: &str,
+    token0: &str,
+    token1: &str,
     from_block: U64,
     to_block: U64,
     fee: u32,
@@ -269,9 +279,9 @@ async fn get_pool_events_by_token_pairs(
     let factory_address = Address::from_str("0x1F98431c8aD98523631AE4a59f267346ea31F984")?;
 
     // Get the pool address for the given token pair
-    let token_a_address = Address::from_str(token_a)?;
-    let token_b_address = Address::from_str(token_b)?;
-    let pool_address = get_pool_address(provider.clone(), factory_address, token_a_address, token_b_address, fee).await?;
+    let token0_address = Address::from_str(token0)?;
+    let token1_address = Address::from_str(token1)?;
+    let pool_address = get_pool_address(provider.clone(), factory_address, token0_address, token1_address, fee).await?;
     println!("Fetched pool address: {:?}", pool_address);
 
     let logs = get_pool_events_by_pool_address(provider.clone(), pool_address, from_block, to_block).await?;
@@ -400,11 +410,11 @@ async fn get_block_number_from_timestamp(
     Ok(low)
 }
 
-async fn fetch_pool_data(provider: Arc::<Provider<Http>>,token_a: &str, token_b: &str, fee: u32, start_datetime: &str, end_datetime: &str, _interval: &str) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_pool_data(provider: Arc::<Provider<Http>>,token0: &str, token1: &str, fee: u32, start_datetime: &str, end_datetime: &str, _interval: &str) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
     // let date_str = "2024-09-27 19:34:56";
     let (from_block, to_block) = get_block_number_range(provider.clone(), start_datetime, end_datetime).await?;
 
-    let pool_events = get_pool_events_by_token_pairs(provider.clone(), token_a, token_b, from_block, to_block, fee).await?;
+    let pool_events = get_pool_events_by_token_pairs(provider.clone(), token0, token1, from_block, to_block, fee).await?;
     Ok(pool_events)
 }
 
@@ -460,8 +470,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_pool_data() {
-        let token_a = "0xaea46a60368a7bd060eec7df8cba43b7ef41ad85";
-        let token_b = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+        let token0 = "0xaea46a60368a7bd060eec7df8cba43b7ef41ad85";
+        let token1 = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
         let start_datetime = "2024-10-11 10:34:56";
         let end_datetime = "2024-10-11 12:35:56";
         let interval = "1h";
@@ -470,7 +480,7 @@ mod tests {
 
         let provider = Arc::new(Provider::<Http>::try_from(rpc_url).unwrap());
 
-        let __result = fetch_pool_data(provider, token_a, token_b, fee, start_datetime, end_datetime, interval).await;
+        let __result = fetch_pool_data(provider, token0, token1, fee, start_datetime, end_datetime, interval).await;
         assert!(__result.is_ok());
     }
 }

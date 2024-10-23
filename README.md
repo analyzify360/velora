@@ -52,7 +52,7 @@ If you have an alternative Ethereum node that you’d like to use, you can speci
 
 4. To run the miner:
    ```bash
-   comx module serve subnet.miner.model.Miner <name-of-your-com-key> --subnets-whitelist <your-subnet-netuid> [--ip <text>] [--port <number>]
+   comx module serve src.subnet.miner.model.Miner <name-of-your-com-key> --subnets-whitelist <your-subnet-netuid> [--ip <text>] [--port <number>]
    ```
 
 ### Running Validator
@@ -73,7 +73,7 @@ If you have an alternative Ethereum node that you’d like to use, you can speci
 
 5. To run the validator:
    ```bash
-   python3 -m subnet.cli <name-of-your-com-key>
+   python3 -m src.subnet.cli <name-of-your-com-key>
    ```
 
 ### Running Miner with PM2
