@@ -47,6 +47,7 @@ load_dotenv()
 
 IP_REGEX = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+")
 
+EPS = 1e-10
 
 def set_weights(
     settings: ValidatorSettings,
@@ -449,14 +450,16 @@ class VeloraValidator(Module):
         
         process_time_score = {}
         for key, miner_answer in miner_results:
+            if not miner_answer:
+                continue
             process_time_score[key] = miner_answer["process_time"].total_seconds()
             
         print(f'process_time_score: {process_time_score}')
         max_time = max(process_time_score.values())
         min_time = min(process_time_score.values())
-        process_time_score = {key: 1 - 0.5 * (process_time - min_time) / (max_time - min_time) for key, process_time in process_time_score.items()}
+        process_time_score = {key: 1 - 0.5 * (process_time - min_time) / (max_time - min_time + EPS) for key, process_time in process_time_score.items()}
+        overall_score = {key: ((accuracy_score[key] + process_time_score[key]) / 2) for key in accuracy_score.keys()}
         
-        overall_score = {key: (accuracy_score[key] + process_time_score[key]) / 2 for key in accuracy_score.keys()}
         return overall_score
     
     async def validate_step(
