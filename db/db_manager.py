@@ -17,58 +17,58 @@ class Timetable(Base):
     completed = Column(Boolean)
 
 def token_pairs_table_columns(): return [
-    Column('token0', String, required=True),
-    Column('token1', String, required=True),
-    Column('fee', Integer, required=True),
-    Column('completed', Boolean, required=True)
+    Column('token0', String, nullable=False),
+    Column('token1', String, nullable=False),
+    Column('fee', Integer, nullable=False),
+    Column('completed', Boolean, nullable=False)
 ]
 
 def pool_data_table_columns(): return [
-    Column('block_number', String, required=True),
-    Column('event_type', String, required=True),
-    Column('transaction_hash', String, required=True)
+    Column('block_number', String, nullable=False),
+    Column('event_type', String, nullable=False),
+    Column('transaction_hash', String, nullable=False)
 ]
 
 def swap_event_table_columns(): return [
-    Column('transaction_hash', String, required=True),
-    Column('sender', String, required=True),
-    Column('to', String, required=True),
-    Column('amount0', String, required=True),  # I256 can be stored as String
-    Column('amount1', String, required=True),  # I256 can be stored as String
-    Column('sqrt_price_x96', String, required=True),  # U256 can be stored as String
-    Column('liquidity', String, required=True),  # U256 can be stored as String
-    Column('tick', Integer, required=True)  # i32 can be stored as Integer
+    Column('transaction_hash', String, nullable=False),
+    Column('sender', String, nullable=False),
+    Column('to', String, nullable=False),
+    Column('amount0', String, nullable=False),  # I256 can be stored as String
+    Column('amount1', String, nullable=False),  # I256 can be stored as String
+    Column('sqrt_price_x96', String, nullable=False),  # U256 can be stored as String
+    Column('liquidity', String, nullable=False),  # U256 can be stored as String
+    Column('tick', Integer, nullable=False)  # i32 can be stored as Integer
 ]
 
 def mint_event_table_columns(): return [
-    Column('transaction_hash', String, required=True),
-    Column('sender', String, required=True),
-    Column('owner', String, required=True),
-    Column('tick_lower', Integer, required=True),  # int24 can be stored as Integer
-    Column('tick_upper', Integer, required=True),  # int24 can be stored as Integer
-    Column('amount', String, required=True),  # U256 can be stored as String
-    Column('amount0', String, required=True),  # U256 can be stored as String
-    Column('amount1', String, required=True)  # U256 can be stored as String
+    Column('transaction_hash', String, nullable=False),
+    Column('sender', String, nullable=False),
+    Column('owner', String, nullable=False),
+    Column('tick_lower', Integer, nullable=False),  # int24 can be stored as Integer
+    Column('tick_upper', Integer, nullable=False),  # int24 can be stored as Integer
+    Column('amount', String, nullable=False),  # U256 can be stored as String
+    Column('amount0', String, nullable=False),  # U256 can be stored as String
+    Column('amount1', String, nullable=False)  # U256 can be stored as String
 ]
 
 def burn_event_table_columns(): return [
-    Column('transaction_hash', String, required=True),
-    Column('owner', String, required=True),
-    Column('tick_lower', Integer, required=True),  # int24 can be stored as Integer
-    Column('tick_upper', Integer, required=True),  # int24 can be stored as Integer
-    Column('amount', String, required=True),  # U256 can be stored as String
-    Column('amount0', String, required=True),  # U256 can be stored as String
-    Column('amount1', String, required=True)  # U256 can be stored as String
+    Column('transaction_hash', String, nullable=False),
+    Column('owner', String, nullable=False),
+    Column('tick_lower', Integer, nullable=False),  # int24 can be stored as Integer
+    Column('tick_upper', Integer, nullable=False),  # int24 can be stored as Integer
+    Column('amount', String, nullable=False),  # U256 can be stored as String
+    Column('amount0', String, nullable=False),  # U256 can be stored as String
+    Column('amount1', String, nullable=False)  # U256 can be stored as String
 ]
 
 def collect_event_table_columns(): return [
-    Column('transaction_hash', String, required=True),
-    Column('owner', String, required=True),
-    Column('recipient', String, required=True),
-    Column('tick_lower', Integer, required=True),  # int24 can be stored as Integer
-    Column('tick_upper', Integer, required=True),  # int24 can be stored as Integer
-    Column('amount0', String, required=True),  # U256 can be stored as String
-    Column('amount1', String, required=True)  # U256 can be stored as String
+    Column('transaction_hash', String, nullable=False),
+    Column('owner', String, nullable=False),
+    Column('recipient', String, nullable=False),
+    Column('tick_lower', Integer, nullable=False),  # int24 can be stored as Integer
+    Column('tick_upper', Integer, nullable=False),  # int24 can be stored as Integer
+    Column('amount0', String, nullable=False),  # U256 can be stored as String
+    Column('amount1', String, nullable=False)  # U256 can be stored as String
 ]
 
 class DBManager:
