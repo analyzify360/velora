@@ -131,6 +131,7 @@ class DBManager:
 
     def create_token_pairs_table(self, start: str, end: str) -> Table:
         """Create a new token pairs table for the specified time range."""
+        start, end = self.date_normalize(start, end)
                 
         new_table_name = f'token_pairs_{start}_{end}'
         metadata = MetaData()
@@ -159,7 +160,7 @@ class DBManager:
 
     def add_token_pairs(self, start: str, end: str, token_pairs: List[Dict[str, Union[str, int]]]) -> None:
         """Add token pairs to the corresponding table."""
-        start, date = self.date_normalize(start, end)
+        start, end = self.date_normalize(start, end)
         table_name = f'token_pairs_{start}_{end}'
         self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
         table = Table(table_name, MetaData(), autoload_with=self.engine)
@@ -357,10 +358,11 @@ class DBManager:
             {'transaction_hash': data['transaction_hash'], **data['event']['data']}
             for data in pool_data if data['event']['type'] == 'swap'
         ]
-        insert_query = swap_table.insert().values(swap_event_data)
-        with self.Session() as session:
-            session.execute(insert_query)
-            session.commit()
+        if swap_event_data:
+            insert_query = swap_table.insert().values(swap_event_data)
+            with self.Session() as session:
+                session.execute(insert_query)
+                session.commit()
 
         # Add the mint event data to the mint event tables
         mint_table_name = f'mint_event_{token0}_{token1}_{fee}'
@@ -371,10 +373,11 @@ class DBManager:
             {'transaction_hash': data['transaction_hash'], **data['event']['data']}
             for data in pool_data if data['event']['type'] == 'mint'
         ]
-        insert_query = mint_table.insert().values(mint_event_data)
-        with self.Session() as session:
-            session.execute(insert_query)
-            session.commit()
+        if mint_event_data:
+            insert_query = mint_table.insert().values(mint_event_data)
+            with self.Session() as session:
+                session.execute(insert_query)
+                session.commit()
 
         # Add the burn event data to the burn event tables
         burn_table_name = f'burn_event_{token0}_{token1}_{fee}'
@@ -385,10 +388,11 @@ class DBManager:
             {'transaction_hash': data['transaction_hash'], **data['event']['data']}
             for data in pool_data if data['event']['type'] == 'burn'
         ]
-        insert_query = burn_table.insert().values(burn_event_data)
-        with self.Session() as session:
-            session.execute(insert_query)
-            session.commit()
+        if burn_event_data:
+            insert_query = burn_table.insert().values(burn_event_data)
+            with self.Session() as session:
+                session.execute(insert_query)
+                session.commit()
 
         # Add the collect event data to the collect event tables
         collect_table_name = f'collect_event_{token0}_{token1}_{fee}'
@@ -399,7 +403,8 @@ class DBManager:
             {'transaction_hash': data['transaction_hash'], **data['event']['data']}
             for data in pool_data if data['event']['type'] == 'collect'
         ]
-        insert_query = collect_table.insert().values(collect_event_data)
-        with self.Session() as session:
-            session.execute(insert_query)
-            session.commit()
+        if collect_event_data:
+            insert_query = collect_table.insert().values(collect_event_data)
+            with self.Session() as session:
+                session.execute(insert_query)
+                session.commit()
