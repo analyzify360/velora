@@ -3,12 +3,10 @@ from communex.key import generate_keypair
 from communex.compat.key import classic_load_key
 from keylimiter import TokenBucketLimiter
 
+import os
 import json
 import pool_data_fetcher
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
 
 class Miner(Module):
     """
