@@ -25,7 +25,7 @@ import json
 import re
 import time
 from functools import partial
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, date
 
 from communex.client import CommuneClient  # type: ignore
 from communex.module.client import ModuleClient  # type: ignore
@@ -357,13 +357,13 @@ class VeloraValidator(Module):
                 break
 
         # Implement your custom prompt generation logic here
-        token_a=token_pair["token_a"]
-        token_b=token_pair["token_b"]
-        token_fee=f'{token_pair["fee"]}'
+        token0=token_pair["token0"]
+        token1=token_pair["token1"]
+        fee=f'{token_pair["fee"]}'
         start_datetime=time_range[0].strftime("%Y-%m-%d %H:%M:%S")
         end_datetime=time_range[1].strftime("%Y-%m-%d %H:%M:%S")
-        print(f"Prompting miners with token pair {type(token_a)} {type(token_b)} {type(token_fee)} {type(start_datetime)} {type(end_datetime)}")
-        return {"token_a": token_a, "token_b": token_b, "fee": token_fee, "start_datetime": start_datetime, "end_datetime": end_datetime}
+
+        return {"token0": token0, "token1": token1, "fee": fee, "start_datetime": start_datetime, "end_datetime": end_datetime}
         
     def check_miner_answer(self, miner_prompt: dict, miner_answer: dict | None) -> bool:
         """
@@ -373,9 +373,9 @@ class VeloraValidator(Module):
             miner_prompt: The prompt for the miner modules.
             miner_answer: The generated answer from the miner module.
         """
-        token_a = miner_prompt.get("token_a", None)
-        token_b = miner_prompt.get("token_b", None)
-        token_fee = int(miner_prompt.get("fee", None))
+        token0 = miner_prompt.get("token0", None)
+        token1 = miner_prompt.get("token1", None)
+        fee = int(miner_prompt.get("fee", None))
         start_datetime = miner_prompt.get("start_datetime", None)
         end_datetime = miner_prompt.get("end_datetime", None)
         
@@ -394,7 +394,7 @@ class VeloraValidator(Module):
             if block_number < block_number_start or block_number > block_number_end:
                 return False
             
-            block_data_from_pools = self.pool_data_fetcher.get_pool_events_by_token_pairs(token_a, token_b, block_number, block_number, token_fee)
+            block_data_from_pools = self.pool_data_fetcher.get_pool_events_by_token_pairs(token0, token1, block_number, block_number, fee)
             for block_data_of_pool in block_data_from_pools.get("data", []):
                 if block_data_of_pool.get("transaction_hash") == block_data.get("transaction_hash"):
                     return True
@@ -408,18 +408,18 @@ class VeloraValidator(Module):
             miner_prompt: The prompt for the miner modules.
             miner_answer: The generated answer from the miner module
         """
-        token_a = miner_prompt.get("token_a", None)
-        token_b = miner_prompt.get("token_b", None)
-        token_fee = miner_prompt.get("fee", None)
+        token0 = miner_prompt.get("token0", None)
+        token1 = miner_prompt.get("token1", None)
+        fee = miner_prompt.get("fee", None)
         start_datetime = miner_prompt.get("start_datetime", None)
         end_datetime = miner_prompt.get("end_datetime", None)
         
         miner_data = miner_answer.get("data", None)
         
-        self.db_manager.create_pool_data_table(token_a, token_b, token_fee)
-        self.db_manager.add_pool_data(token_a, token_b, token_fee, miner_data)
+        self.db_manager.create_pool_data_table(token0, token1, fee)
+        self.db_manager.add_pool_data(token0, token1, fee, miner_data)
         
-        self.db_manager.mark_token_pair_as_complete(start_datetime, end_datetime, token_a, token_b, token_fee)
+        self.db_manager.mark_token_pair_as_complete(start_datetime, end_datetime, token0, token1, fee)
         
         token_pairs = self.db_manager.fetch_incompleted_token_pairs(start_datetime, end_datetime)
         
@@ -447,7 +447,11 @@ class VeloraValidator(Module):
             assert score <= 1
             accuracy_score[uid] = score
         
-        process_time_score = {uid: miner_answer["process_time"].total_seconds() for uid, miner_answer in miner_results}
+        process_time_score = {}
+        for uid, miner_answer in miner_results:
+            process_time_score[uid] = miner_answer["process_time"].total_seconds()
+            
+        print(f'process_time_score: {process_time_score}')
         max_time = max(process_time_score.values())
         min_time = min(process_time_score.values())
         process_time_score = {uid: 1 - 0.5 * (process_time - min_time) / (max_time - min_time) for uid, process_time in process_time_score.items()}

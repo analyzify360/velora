@@ -4,6 +4,8 @@ from sqlalchemy.orm import sessionmaker
 from typing import Union, List, Dict
 from utils.config import get_postgres_url
 
+from datetime import datetime
+
 # Define the base class for your table models
 Base = declarative_base()
 
@@ -15,8 +17,8 @@ class Timetable(Base):
     completed = Column(Boolean)
 
 def token_pairs_table_columns(): return [
-    Column('token_a', String),
-    Column('token_b', String),
+    Column('token0', String),
+    Column('token1', String),
     Column('fee', Integer),
     Column('completed', Boolean)
 ]
@@ -89,7 +91,7 @@ class DBManager:
         # Don't forget to close the session
         self.session.close()
     
-    def add_timetable_entry(self, start: Date, end: Date) -> None:
+    def add_timetable_entry(self, start: str, end: str) -> None:
         """Add a new timetable entry to the database."""
         with self.Session() as session:
             new_entry = Timetable(start=start, end=end, completed=False)
@@ -117,7 +119,7 @@ class DBManager:
             else:
                 return None
 
-    def mark_time_range_as_complete(self, start: Date, end: Date) -> bool:
+    def mark_time_range_as_complete(self, start: str, end: str) -> bool:
         """Mark a timetable entry as complete."""
         with self.Session() as session:
             record = session.query(Timetable).filter_by(start=start, end=end).first()
@@ -127,7 +129,7 @@ class DBManager:
                 return True
             return False
 
-    def create_token_pairs_table(self, start: Date, end: Date) -> Table:
+    def create_token_pairs_table(self, start: str, end: str) -> Table:
         """Create a new token pairs table for the specified time range."""
                 
         new_table_name = f'token_pairs_{start}_{end}'
@@ -151,18 +153,18 @@ class DBManager:
         inspector = inspect(self.engine)
         
         if table_name not in inspector.get_table_names():
-            print(f'creating table {table_name}')
+            print(f'creating table {table_name} with args: {args}')
             return func(**args)
         print(f'table {table_name} already exists')
 
-    def add_token_pairs(self, start: Date, end: Date, token_pairs: List[Dict[str, Union[str, float]]]) -> None:
+    def add_token_pairs(self, start: str, end: str, token_pairs: List[Dict[str, Union[str, float]]]) -> None:
         """Add token pairs to the corresponding table."""
         table_name = f'token_pairs_{start}_{end}'
         self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
         table = Table(table_name, MetaData(), autoload_with=self.engine)
         
         insert_values = [
-            {'token_a': token_pair['token0'], 'token_b': token_pair['token1'], 'fee': token_pair['fee'], 'completed': False}
+            {'token0': token_pair['token0'], 'token1': token_pair['token1'], 'fee': token_pair['fee'], 'completed': False}
             for token_pair in token_pairs
         ]
         
@@ -170,45 +172,69 @@ class DBManager:
         with self.Session() as session:
             session.execute(insert_query)
             session.commit()
+    
+    def date_normalize(self, start: str, end: str) -> tuple:
+        if isinstance(start, str):
+            start = start.replace("T", " ")
+        elif isinstance(start, datetime):
+            start = start.strftime("%Y-%m-%d")
+        elif isinstance(start, Date):
+            start = start.strftime("%Y-%m-%d")
+        
+        if isinstance(end, str):
+            end = end.replace("T", " ")
+        elif isinstance(end, datetime):
+            end = end.strftime("%Y-%m-%d")
+        elif isinstance(end, Date):
+            end = end.strftime("%Y-%m-%d")
+            
+        return start, end       
+        
 
     def fetch_token_pairs(self, start: Date, end: Date) -> List[Dict[str, Union[str, float, bool]]]:
         """Fetch all token pairs from the corresponding table."""
+        start, end = self.date_normalize(start, end)
         table_name = f'token_pairs_{start}_{end}'
         self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
         table = Table(table_name, MetaData(), autoload_with=self.engine)
         
         with self.engine.connect() as conn:
             token_pairs_data = conn.execute(table.select()).fetchall()
-            return [{"token_a": row.token_a, "token_b": row.token_b, "fee": row.fee, "completed": row.completed} for row in token_pairs_data]
+            return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed} for row in token_pairs_data]
 
-    def fetch_incompleted_token_pairs(self, start: Date, end: Date) -> List[Dict[str, Union[str, float, bool]]]:
+    def fetch_incompleted_token_pairs(self, start: str, end: str) -> List[Dict[str, Union[str, float, bool]]]:
         """Fetch all incompleted token pairs from the corresponding table."""
+        start, end = self.date_normalize(start, end)
         table_name = f'token_pairs_{start}_{end}'
         self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
         table = Table(table_name, MetaData(), autoload_with=self.engine)
         
         with self.engine.connect() as conn:
             completed_data = conn.execute(table.select().where(table.c.completed == False)).fetchall()
-            return [{"token_a": row.token_a, "token_b": row.token_b, "fee": row.fee, "completed": row.completed} for row in completed_data]
+            return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed} for row in completed_data]
 
-    def mark_token_pair_as_complete(self, start: Date, end: Date, token_a: str, token_b: str, fee: int) -> bool:
+    def mark_token_pair_as_complete(self, start: str, end: str, token0: str, token1: str, fee: int) -> bool:
         """Mark a token pair as complete."""
+        start, end = self.date_normalize(start, end)
         table_name = f'token_pairs_{start}_{end}'
         self.ensure_table_exists(table_name, self.create_token_pairs_table, start=start, end=end)
         table = Table(table_name, MetaData(), autoload_with=self.engine)
         
         with self.engine.connect() as conn:
-            record = conn.execute(table.select().where(table.c.token_a == token_a).where(table.c.token_b == token_b).where(table.c.fee == fee)).fetchone()
+            record = conn.execute(table.select().where(table.c.token0 == token0).where(table.c.token1 == token1).where(table.c.fee == fee)).fetchone()
             
             if record:
-                update_query = table.update().where(table.c.token_a == token_a).where(table.c.token_b == token_b).where(table.c.fee == fee).values(completed=True)
+                update_query = table.update().where(table.c.token0 == token0).where(table.c.token1 == token1).where(table.c.fee == fee).values(completed=True)
                 conn.execute(update_query)
                 return True
             return False
 
-    def create_pool_data_table(self, token_a: str, token_b: str, fee: int) -> Table:
+    def create_pool_data_table(self, token0: str, token1: str, fee: int) -> Table:
         """Create a new pool data table."""
-        new_table_name = f'pool_data_{token_a}_{token_b}_{fee}'
+        token0 = token0[-4:]
+        token1 = token1[-4:]
+                
+        new_table_name = f'pool_data_{token0}_{token1}_{fee}'
         metadata = MetaData()
         columns = pool_data_table_columns()
         
@@ -221,17 +247,17 @@ class DBManager:
         try:
             new_table.create(self.engine)
             
-            self.create_swap_event_table(token_a, token_b, fee)
-            self.create_mint_event_table(token_a, token_b, fee)
-            self.create_burn_event_table(token_a, token_b, fee)
-            self.create_collect_event_table(token_a, token_b, fee)
+            self.create_swap_event_table(token0, token1, fee)
+            self.create_mint_event_table(token0, token1, fee)
+            self.create_burn_event_table(token0, token1, fee)
+            self.create_collect_event_table(token0, token1, fee)
         except Exception as e:
             print(f"Error creating table {new_table_name}: {e}")
         return new_table
 
-    def create_swap_event_table(self, token_a: str, token_b: str, fee: int) -> Table:
+    def create_swap_event_table(self, token0: str, token1: str, fee: int) -> Table:
         """Create a new swap event table."""
-        new_table_name = f'swap_event_{token_a}_{token_b}_{fee}'
+        new_table_name = f'swap_event_{token0}_{token1}_{fee}'
         metadata = MetaData()
         columns=swap_event_table_columns()
         
@@ -247,9 +273,9 @@ class DBManager:
             print(f"Error creating table {new_table_name}: {e}")
         return new_table
 
-    def create_mint_event_table(self, token_a: str, token_b: str, fee: int) -> Table:
+    def create_mint_event_table(self, token0: str, token1: str, fee: int) -> Table:
         """Create a new mint event table."""
-        new_table_name = f'mint_event_{token_a}_{token_b}_{fee}'
+        new_table_name = f'mint_event_{token0}_{token1}_{fee}'
         metadata = MetaData()
         columns = mint_event_table_columns()
         
@@ -265,9 +291,9 @@ class DBManager:
             print(f"Error creating table {new_table_name}: {e}")
         return new_table
 
-    def create_burn_event_table(self, token_a: str, token_b: str, fee: int) -> Table:
+    def create_burn_event_table(self, token0: str, token1: str, fee: int) -> Table:
         """Create a new burn event table."""
-        new_table_name = f'burn_event_{token_a}_{token_b}_{fee}'
+        new_table_name = f'burn_event_{token0}_{token1}_{fee}'
         metadata = MetaData()
         columns = burn_event_table_columns()
         
@@ -283,9 +309,9 @@ class DBManager:
             print(f"Error creating table {new_table_name}: {e}")
         return new_table
 
-    def create_collect_event_table(self, token_a: str, token_b: str, fee: int) -> Table:
+    def create_collect_event_table(self, token0: str, token1: str, fee: int) -> Table:
         """Create a new collect event table."""
-        new_table_name = f'collect_event_{token_a}_{token_b}_{fee}'
+        new_table_name = f'collect_event_{token0}_{token1}_{fee}'
         metadata = MetaData()
         columns = collect_event_table_columns()
         
@@ -301,14 +327,14 @@ class DBManager:
             print(f"Error creating table {new_table_name}: {e}")
         return new_table
 
-    def add_pool_data(self, token_a: str, token_b: str, fee: int, pool_data: List[Dict]) -> None:
+    def add_pool_data(self, token0: str, token1: str, fee: int, pool_data: List[Dict]) -> None:
         """Add pool data to the pool data table and related event tables."""
-        token_a = token_a[-4:]
-        token_b = token_b[-4:]
+        token0 = token0[-4:]
+        token1 = token1[-4:]
         
         # Add the pool data to the pool data table
-        table_name = f'pool_data_{token_a}_{token_b}_{fee}'
-        self.ensure_table_exists(table_name, self.create_pool_data_table, token_a=token_a, token_b=token_b, fee=fee)
+        table_name = f'pool_data_{token0}_{token1}_{fee}'
+        self.ensure_table_exists(table_name, self.create_pool_data_table, token0=token0, token1=token1, fee=fee)
         table = Table(table_name, MetaData(), autoload_with=self.engine)
 
         insert_values = [
@@ -322,8 +348,8 @@ class DBManager:
             session.commit()
 
         # Add the swap event data to the swap event tables
-        swap_table_name = f'swap_event_{token_a}_{token_b}_{fee}'
-        self.ensure_table_exists(table_name, self.create_swap_event_table, token_a=token_a, token_b=token_b, fee=fee)
+        swap_table_name = f'swap_event_{token0}_{token1}_{fee}'
+        self.ensure_table_exists(table_name, self.create_swap_event_table, token0=token0, token1=token1, fee=fee)
         swap_table = Table(swap_table_name, MetaData(), autoload_with=self.engine)
 
         swap_event_data = [
@@ -336,8 +362,8 @@ class DBManager:
             session.commit()
 
         # Add the mint event data to the mint event tables
-        mint_table_name = f'mint_event_{token_a}_{token_b}_{fee}'
-        self.ensure_table_exists(table_name, self.create_mint_event_table, token_a=token_a, token_b=token_b, fee=fee)
+        mint_table_name = f'mint_event_{token0}_{token1}_{fee}'
+        self.ensure_table_exists(table_name, self.create_mint_event_table, token0=token0, token1=token1, fee=fee)
         mint_table = Table(mint_table_name, MetaData(), autoload_with=self.engine)
 
         mint_event_data = [
@@ -350,8 +376,8 @@ class DBManager:
             session.commit()
 
         # Add the burn event data to the burn event tables
-        burn_table_name = f'burn_event_{token_a}_{token_b}_{fee}'
-        self.ensure_table_exists(table_name, self.create_burn_event_table, token_a=token_a, token_b=token_b, fee=fee)
+        burn_table_name = f'burn_event_{token0}_{token1}_{fee}'
+        self.ensure_table_exists(table_name, self.create_burn_event_table, token0=token0, token1=token1, fee=fee)
         burn_table = Table(burn_table_name, MetaData(), autoload_with=self.engine)
 
         burn_event_data = [
@@ -364,8 +390,8 @@ class DBManager:
             session.commit()
 
         # Add the collect event data to the collect event tables
-        collect_table_name = f'collect_event_{token_a}_{token_b}_{fee}'
-        self.ensure_table_exists(table_name, self.create_collect_event_table, token_a=token_a, token_b=token_b, fee=fee)
+        collect_table_name = f'collect_event_{token0}_{token1}_{fee}'
+        self.ensure_table_exists(table_name, self.create_collect_event_table, token0=token0, token1=token1, fee=fee)
         collect_table = Table(collect_table_name, MetaData(), autoload_with=self.engine)
 
         collect_event_data = [
