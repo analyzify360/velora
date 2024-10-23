@@ -442,6 +442,7 @@ class VeloraValidator(Module):
 
             score = self._score_miner(miner_answer, trust_miner_result)
             time.sleep(0.5)
+            print(f"uid: {uid} miner_answer: {miner_answer} score: {score}")
             # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
             assert score <= 1
             accuracy_score[uid] = score
