@@ -28,13 +28,15 @@ class Tokenpairstable(Base):
 
 class Pooldatatable(Base):
     __tablename__ = 'pool_data'
+    id = Column(Integer, primary_key=True, autoincrement=True)
     block_number = Column(String, nullable=False)
     event_type = Column(String, nullable=False)
-    transaction_hash = Column(String, nullable=False, primary_key=True)
+    transaction_hash = Column(String, nullable=False)
 
 class SwapEventTable(Base):
     __tablename__ = 'swap_event'
-    transaction_hash = Column(String, nullable=False, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    transaction_hash = Column(String, nullable=False)
     token0 = Column(String, nullable=False)
     token1 = Column(String, nullable=False)
     fee = Column(Integer, nullable=False)
@@ -48,7 +50,8 @@ class SwapEventTable(Base):
 
 class MintEventTable(Base):
     __tablename__ = 'mint_event'
-    transaction_hash = Column(String, nullable=False, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    transaction_hash = Column(String, nullable=False)
     token0 = Column(String, nullable=False)
     token1 = Column(String, nullable=False)
     fee = Column(Integer, nullable=False)
@@ -62,7 +65,8 @@ class MintEventTable(Base):
 
 class BurnEventTable(Base):
     __tablename__ = 'burn_event'
-    transaction_hash = Column(String, nullable=False, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    transaction_hash = Column(String, nullable=False)
     token0 = Column(String, nullable=False)
     token1 = Column(String, nullable=False)
     fee = Column(Integer, nullable=False)
@@ -75,7 +79,8 @@ class BurnEventTable(Base):
 
 class CollectEventTable(Base):
     __tablename__ = 'collect_event'
-    transaction_hash = Column(String, nullable=False, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    transaction_hash = Column(String, nullable=False)
     token0 = Column(String, nullable=False)
     token1 = Column(String, nullable=False)
     fee = Column(Integer, nullable=False)
