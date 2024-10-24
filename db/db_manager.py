@@ -22,7 +22,7 @@ class Tokenpairstable(Base):
     token0 = Column(String, nullable=False)
     token1 = Column(String, nullable=False)
     fee = Column(Integer, nullable=False)
-    pool_address = Column(String, nullable=False)
+    pool = Column(String, nullable=False)
     block_number = Column(String, nullable=False)
     completed = Column(Boolean, nullable=False)
 
@@ -148,7 +148,7 @@ class DBManager:
         """Add token pairs to the corresponding table."""
         
         insert_values = [
-            Tokenpairstable(token0 = token_pair['token0'], token1 = token_pair['token1'], fee = token_pair['fee'], pool_address = token_pair['pool'], block_number = token_pair['block_number'], completed = False)
+            Tokenpairstable(token0 = token_pair['token0'], token1 = token_pair['token1'], fee = token_pair['fee'], pool = token_pair['pool'], block_number = token_pair['block_number'], completed = False)
             for token_pair in token_pairs
         ]
         
