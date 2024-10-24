@@ -18,10 +18,13 @@ class Timetable(Base):
 
 class Tokenpairstable(Base):
     __tablename__ = 'token_pairs'
-    token0 = Column('token0', String, nullable=False)
-    token1 = Column('token1', String, nullable=False)
-    fee = Column('fee', Integer, nullable=False)
-    completed = Column('completed', Boolean, nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    token0 = Column(String, nullable=False)
+    token1 = Column(String, nullable=False)
+    fee = Column(Integer, nullable=False)
+    pool_address = Column(String, nullable=False)
+    block_number = Column(String, nullable=False)
+    completed = Column(Boolean, nullable=False)
 
 class Pooldatatable(Base):
     __tablename__ = 'pool_data'
@@ -32,7 +35,6 @@ class Pooldatatable(Base):
 class SwapEventTable(Base):
     __tablename__ = 'swap_event'
     transaction_hash = Column(String, nullable=False, primary_key=True)
-    pool_address = Column(String, nullable=False)
     token0 = Column(String, nullable=False)
     token1 = Column(String, nullable=False)
     fee = Column(Integer, nullable=False)
@@ -47,7 +49,6 @@ class SwapEventTable(Base):
 class MintEventTable(Base):
     __tablename__ = 'mint_event'
     transaction_hash = Column(String, nullable=False, primary_key=True)
-    pool_address = Column(String, nullable=False)
     token0 = Column(String, nullable=False)
     token1 = Column(String, nullable=False)
     fee = Column(Integer, nullable=False)
@@ -62,7 +63,6 @@ class MintEventTable(Base):
 class BurnEventTable(Base):
     __tablename__ = 'burn_event'
     transaction_hash = Column(String, nullable=False, primary_key=True)
-    pool_address = Column(String, nullable=False)
     token0 = Column(String, nullable=False)
     token1 = Column(String, nullable=False)
     fee = Column(Integer, nullable=False)
@@ -76,7 +76,6 @@ class BurnEventTable(Base):
 class CollectEventTable(Base):
     __tablename__ = 'collect_event'
     transaction_hash = Column(String, nullable=False, primary_key=True)
-    pool_address = Column(String, nullable=False)
     token0 = Column(String, nullable=False)
     token1 = Column(String, nullable=False)
     fee = Column(Integer, nullable=False)
@@ -149,7 +148,7 @@ class DBManager:
         """Add token pairs to the corresponding table."""
         
         insert_values = [
-            Tokenpairstable(token0 = token_pair['token0'], token1 = token_pair['token1'], fee = token_pair['fee'], completed = False)
+            Tokenpairstable(token0 = token_pair['token0'], token1 = token_pair['token1'], fee = token_pair['fee'], pool_address = token_pair['pool'], block_number = token_pair['block_number'], completed = False)
             for token_pair in token_pairs
         ]
         
@@ -178,6 +177,11 @@ class DBManager:
                 session.commit()
                 return True
             return False
+    def reset_token_pairs(self):
+        """Reset the token pairs completed state"""
+        with self.Session() as session:
+            session.query(Tokenpairstable).update({Tokenpairstable.completed: False})
+            session.commit()
 
     def add_pool_data(self, token0: str, token1: str, fee: int, pool_data: List[Dict]) -> None:
         """Add pool data to the pool data table and related event tables."""

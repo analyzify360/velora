@@ -296,16 +296,13 @@ class VeloraValidator(Module):
         
         self.db_manager.add_timetable_entry(start, end)
         
-        if last_time_range:
-            previous_token_pairs = self.db_manager.fetch_token_pairs()
-            self.db_manager.add_token_pairs(previous_token_pairs)
-
         start_date_str = start.strftime("%Y-%m-%d %H:%M:%S")
         end_date_str = end.strftime("%Y-%m-%d %H:%M:%S")
         
         log(f"Fetching token pairs between {start_date_str} and {end_date_str}")
         
         token_pairs = self.pool_data_fetcher.get_pool_created_events_between_two_timestamps(start_date_str, end_date_str)
+        self.db_manager.reset_token_pairs()
         self.db_manager.add_token_pairs(token_pairs)
         
         return start, end
