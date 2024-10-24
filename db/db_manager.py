@@ -37,9 +37,7 @@ class SwapEventTable(Base):
     __tablename__ = 'swap_event'
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
-    token0 = Column(String, nullable=False)
-    token1 = Column(String, nullable=False)
-    fee = Column(Integer, nullable=False)
+    pool_address = Column(String, nullable=False)
     sender = Column(String, nullable=False)
     to = Column(String, nullable=False)
     amount0 = Column(String, nullable=False)  # I256 can be stored as String
@@ -52,9 +50,7 @@ class MintEventTable(Base):
     __tablename__ = 'mint_event'
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
-    token0 = Column(String, nullable=False)
-    token1 = Column(String, nullable=False)
-    fee = Column(Integer, nullable=False)
+    pool_address = Column(String, nullable=False)
     sender = Column(String, nullable=False)
     owner = Column(String, nullable=False)
     tick_lower = Column(Integer, nullable=False)  # int24 can be stored as Integer
@@ -67,9 +63,7 @@ class BurnEventTable(Base):
     __tablename__ = 'burn_event'
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
-    token0 = Column(String, nullable=False)
-    token1 = Column(String, nullable=False)
-    fee = Column(Integer, nullable=False)
+    pool_address = Column(String, nullable=False)
     owner = Column(String, nullable=False)
     tick_lower = Column(Integer, nullable=False)  # int24 can be stored as Integer
     tick_upper = Column(Integer, nullable=False)  # int24 can be stored as Integer
@@ -81,9 +75,7 @@ class CollectEventTable(Base):
     __tablename__ = 'collect_event'
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
-    token0 = Column(String, nullable=False)
-    token1 = Column(String, nullable=False)
-    fee = Column(Integer, nullable=False)
+    pool_address = Column(String, nullable=False)
     owner = Column(String, nullable=False)
     recipient = Column(String, nullable=False)
     tick_lower = Column(Integer, nullable=False)  # int24 can be stored as Integer
@@ -173,22 +165,24 @@ class DBManager:
             incompleted_token_pairs = session.query(Tokenpairstable).filter_by(completed=False).all()
             return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed} for row in incompleted_token_pairs]
 
-    def mark_token_pair_as_complete(self, token0: str, token1: str, fee: int) -> bool:
+    def mark_token_pairs_as_complete(self, token_pairs: List[Dict]) -> bool:
         """Mark a token pair as complete."""
         with self.Session() as session:
-            record = session.query(Tokenpairstable).filter_by(token0=token0, token1=token1, fee=fee).first()
-            if record:
-                record.completed = True
-                session.commit()
-                return True
-            return False
+            for token_pair in token_pairs:
+                record = session.query(Tokenpairstable).filter_by(token0=token_pair['token0'], token1=token_pair['token1'], fee=token_pair['fee']).first()
+                if record:
+                    record.completed = True
+                    session.commit()
+                else:
+                    return False
+            return True
     def reset_token_pairs(self):
         """Reset the token pairs completed state"""
         with self.Session() as session:
             session.query(Tokenpairstable).update({Tokenpairstable.completed: False})
             session.commit()
 
-    def add_pool_data(self, token0: str, token1: str, fee: int, pool_data: List[Dict]) -> None:
+    def add_pool_data(self, pool_data: List[Dict]) -> None:
         """Add pool data to the pool data table and related event tables."""
         insert_values = [
             Pooldatatable(block_number=data['block_number'], event_type=data['event']['type'], transaction_hash=data['transaction_hash'])
@@ -201,7 +195,7 @@ class DBManager:
 
         # Add the swap event data to the swap event table
         swap_event_data = [
-            SwapEventTable(transaction_hash=data['transaction_hash'], token0 = token0, token1 = token1, fee = fee, **data['event']['data'])
+            SwapEventTable(transaction_hash=data['transaction_hash'],  **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'swap'
         ]
         if swap_event_data:
@@ -211,7 +205,7 @@ class DBManager:
 
         # Add the mint event data to the mint event table
         mint_event_data = [
-            MintEventTable(transaction_hash=data['transaction_hash'], token0 = token0, token1 = token1, fee = fee, **data['event']['data'])
+            MintEventTable(transaction_hash=data['transaction_hash'], **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'mint'
         ]
         if mint_event_data:
@@ -221,7 +215,7 @@ class DBManager:
 
         # Add the burn event data to the burn event table
         burn_event_data = [
-            BurnEventTable(transaction_hash=data['transaction_hash'], token0 = token0, token1 = token1, fee = fee, **data['event']['data'])
+            BurnEventTable(transaction_hash=data['transaction_hash'], **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'burn'
         ]
         if burn_event_data:
@@ -231,7 +225,7 @@ class DBManager:
 
         # Add the collect event data to the collect event table
         collect_event_data = [
-            CollectEventTable(transaction_hash=data['transaction_hash'], token0 = token0, token1 = token1, fee = fee, **data['event']['data'])
+            CollectEventTable(transaction_hash=data['transaction_hash'], **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'collect'
         ]
         if collect_event_data:

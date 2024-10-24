@@ -321,7 +321,7 @@ class VeloraValidator(Module):
         else:
             return incompleted_time_range[0]["start"], incompleted_time_range[0]["end"]
     
-    def get_token_pair(self, start: datetime, end: datetime) -> list[dict[str, str]]:
+    def get_token_pairs(self, start: datetime, end: datetime) -> list[dict[str, str]]:
         """
         Get the token pairs for the miner modules.
 
@@ -337,7 +337,7 @@ class VeloraValidator(Module):
         if not token_pairs:
             self.db_manager.mark_time_range_as_complete(start, end)
             return None
-        return token_pairs[0]
+        return token_pairs[:15]
 
     def get_miner_prompt(self) -> dict:
         """
@@ -348,19 +348,16 @@ class VeloraValidator(Module):
         """
         while True:
             time_range = self.get_time_range()
-            token_pair = self.get_token_pair(time_range[0], time_range[1])
+            token_pairs = self.get_token_pairs(time_range[0], time_range[1])
             
-            if token_pair:
+            if token_pairs:
                 break
 
         # Implement your custom prompt generation logic here
-        token0=token_pair["token0"]
-        token1=token_pair["token1"]
-        fee=int(token_pair["fee"])
         start_datetime=time_range[0].strftime("%Y-%m-%d %H:%M:%S")
         end_datetime=time_range[1].strftime("%Y-%m-%d %H:%M:%S")
 
-        return {"token0": token0, "token1": token1, "fee": fee, "start_datetime": start_datetime, "end_datetime": end_datetime}
+        return {"token_pairs": token_pairs, "start_datetime": start_datetime, "end_datetime": end_datetime}
         
     def check_miner_answer(self, miner_prompt: dict, miner_answer: dict | None) -> bool:
         """
@@ -370,9 +367,7 @@ class VeloraValidator(Module):
             miner_prompt: The prompt for the miner modules.
             miner_answer: The generated answer from the miner module.
         """
-        token0 = miner_prompt.get("token0", None)
-        token1 = miner_prompt.get("token1", None)
-        fee = int(miner_prompt.get("fee", None))
+        token_pairs = miner_prompt.get("token_pairs", None)
         start_datetime = miner_prompt.get("start_datetime", None)
         end_datetime = miner_prompt.get("end_datetime", None)
         
@@ -391,7 +386,7 @@ class VeloraValidator(Module):
             if block_number < block_number_start or block_number > block_number_end:
                 return False
             
-            block_data_from_pools = self.pool_data_fetcher.get_pool_events_by_token_pairs(token0, token1, block_number, block_number, fee)
+            block_data_from_pools = self.pool_data_fetcher.get_pool_events_by_token_pairs(token_pairs, block_number, block_number)
             for block_data_of_pool in block_data_from_pools.get("data", []):
                 if block_data_of_pool.get("transaction_hash") == block_data.get("transaction_hash"):
                     return True
@@ -405,17 +400,15 @@ class VeloraValidator(Module):
             miner_prompt: The prompt for the miner modules.
             miner_answer: The generated answer from the miner module
         """
-        token0 = miner_prompt.get("token0", None)
-        token1 = miner_prompt.get("token1", None)
-        fee = miner_prompt.get("fee", None)
+        token_pairs = miner_prompt.get("token_pairs", None)
         start_datetime = miner_prompt.get("start_datetime", None)
         end_datetime = miner_prompt.get("end_datetime", None)
         
         miner_data = miner_answer.get("data", None)
         
-        self.db_manager.add_pool_data(token0, token1, fee, miner_data)
+        self.db_manager.add_pool_data(miner_data)
         
-        self.db_manager.mark_token_pair_as_complete(token0, token1, fee)
+        self.db_manager.mark_token_pairs_as_complete(token_pairs)
         
         token_pairs = self.db_manager.fetch_incompleted_token_pairs()
         
