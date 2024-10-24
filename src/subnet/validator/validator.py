@@ -417,8 +417,8 @@ class VeloraValidator(Module):
         
         miner_data = miner_answer.get("data", None)
         
-        self.db_manager.create_pool_data_table(token0, token1, fee)
-        self.db_manager.add_pool_data(token0, token1, fee, miner_data)
+        self.db_manager.create_pool_data_table(start_datetime, token0, token1, fee)
+        self.db_manager.add_pool_data(start_datetime, token0, token1, fee, miner_data)
         
         self.db_manager.mark_token_pair_as_complete(start_datetime, end_datetime, token0, token1, fee)
         
