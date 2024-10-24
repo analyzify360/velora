@@ -156,6 +156,12 @@ class DBManager:
         with self.Session() as session:
             session.add_all(insert_values)
             session.commit()
+    
+    def fetch_token_pairs(self):
+        """Fetch all token pairs from the corresponding table."""
+        with self.Session() as session:
+            token_pairs = session.query(Tokenpairstable).all()
+            return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed} for row in token_pairs]
 
     def fetch_incompleted_token_pairs(self) -> List[Dict[str, Union[str, int, bool]]]:
         """Fetch all incompleted token pairs from the corresponding table."""
@@ -186,7 +192,7 @@ class DBManager:
 
         # Add the swap event data to the swap event table
         swap_event_data = [
-            SwapEventTable(transaction_hash=data['transaction_hash'], **data['event']['data'])
+            SwapEventTable(transaction_hash=data['transaction_hash'], token0 = token0, token1 = token1, fee = fee, **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'swap'
         ]
         if swap_event_data:
@@ -196,7 +202,7 @@ class DBManager:
 
         # Add the mint event data to the mint event table
         mint_event_data = [
-            MintEventTable(transaction_hash=data['transaction_hash'], **data['event']['data'])
+            MintEventTable(transaction_hash=data['transaction_hash'], token0 = token0, token1 = token1, fee = fee, **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'mint'
         ]
         if mint_event_data:
@@ -206,7 +212,7 @@ class DBManager:
 
         # Add the burn event data to the burn event table
         burn_event_data = [
-            BurnEventTable(transaction_hash=data['transaction_hash'], **data['event']['data'])
+            BurnEventTable(transaction_hash=data['transaction_hash'], token0 = token0, token1 = token1, fee = fee, **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'burn'
         ]
         if burn_event_data:
@@ -216,7 +222,7 @@ class DBManager:
 
         # Add the collect event data to the collect event table
         collect_event_data = [
-            CollectEventTable(transaction_hash=data['transaction_hash'], **data['event']['data'])
+            CollectEventTable(transaction_hash=data['transaction_hash'], token0 = token0, token1 = token1, fee = fee, **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'collect'
         ]
         if collect_event_data:

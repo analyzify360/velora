@@ -295,11 +295,10 @@ class VeloraValidator(Module):
             end = last_time_range["end"] + timedelta(days=1)
         
         self.db_manager.add_timetable_entry(start, end)
-        self.db_manager.create_token_pairs_table(start, end)
         
         if last_time_range:
-            previous_token_pairs = self.db_manager.fetch_token_pairs(last_time_range["start"], last_time_range["end"])
-            self.db_manager.add_token_pairs(start, end, previous_token_pairs)
+            previous_token_pairs = self.db_manager.fetch_token_pairs()
+            self.db_manager.add_token_pairs(previous_token_pairs)
 
         start_date_str = start.strftime("%Y-%m-%d %H:%M:%S")
         end_date_str = end.strftime("%Y-%m-%d %H:%M:%S")
@@ -307,7 +306,7 @@ class VeloraValidator(Module):
         log(f"Fetching token pairs between {start_date_str} and {end_date_str}")
         
         token_pairs = self.pool_data_fetcher.get_pool_created_events_between_two_timestamps(start_date_str, end_date_str)
-        self.db_manager.add_token_pairs(start, end, token_pairs)
+        self.db_manager.add_token_pairs(token_pairs)
         
         return start, end
     
@@ -336,7 +335,7 @@ class VeloraValidator(Module):
         Returns:
             The token pairs for the miner modules.
         """
-        token_pairs = self.db_manager.fetch_incompleted_token_pairs(start, end)
+        token_pairs = self.db_manager.fetch_incompleted_token_pairs()
         
         if not token_pairs:
             self.db_manager.mark_time_range_as_complete(start, end)
@@ -417,12 +416,11 @@ class VeloraValidator(Module):
         
         miner_data = miner_answer.get("data", None)
         
-        self.db_manager.create_pool_data_table(start_datetime, token0, token1, fee)
-        self.db_manager.add_pool_data(start_datetime, token0, token1, fee, miner_data)
+        self.db_manager.add_pool_data(token0, token1, fee, miner_data)
         
-        self.db_manager.mark_token_pair_as_complete(start_datetime, end_datetime, token0, token1, fee)
+        self.db_manager.mark_token_pair_as_complete(token0, token1, fee)
         
-        token_pairs = self.db_manager.fetch_incompleted_token_pairs(start_datetime, end_datetime)
+        token_pairs = self.db_manager.fetch_incompleted_token_pairs()
         
         if not token_pairs:
             self.db_manager.mark_time_range_as_complete(start_datetime, end_datetime)
