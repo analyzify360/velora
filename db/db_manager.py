@@ -165,11 +165,11 @@ class DBManager:
             incompleted_token_pairs = session.query(Tokenpairstable).filter_by(completed=False).all()
             return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed} for row in incompleted_token_pairs]
 
-    def mark_token_pairs_as_complete(self, token_pairs: List[Dict]) -> bool:
+    def mark_token_pairs_as_complete(self, token_pairs: List[tuple]) -> bool:
         """Mark a token pair as complete."""
         with self.Session() as session:
             for token_pair in token_pairs:
-                record = session.query(Tokenpairstable).filter_by(token0=token_pair['token0'], token1=token_pair['token1'], fee=token_pair['fee']).first()
+                record = session.query(Tokenpairstable).filter_by(token0=token_pair[0], token1=token_pair[1], fee=token_pair[2]).first()
                 if record:
                     record.completed = True
                     session.commit()
