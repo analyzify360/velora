@@ -195,7 +195,7 @@ class DBManager:
 
         # Add the swap event data to the swap event table
         swap_event_data = [
-            SwapEventTable(transaction_hash=data['transaction_hash'],  **data['event']['data'])
+            SwapEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'],  **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'swap'
         ]
         if swap_event_data:
@@ -205,7 +205,7 @@ class DBManager:
 
         # Add the mint event data to the mint event table
         mint_event_data = [
-            MintEventTable(transaction_hash=data['transaction_hash'], **data['event']['data'])
+            MintEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'mint'
         ]
         if mint_event_data:
@@ -215,7 +215,7 @@ class DBManager:
 
         # Add the burn event data to the burn event table
         burn_event_data = [
-            BurnEventTable(transaction_hash=data['transaction_hash'], **data['event']['data'])
+            BurnEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'burn'
         ]
         if burn_event_data:
@@ -225,7 +225,7 @@ class DBManager:
 
         # Add the collect event data to the collect event table
         collect_event_data = [
-            CollectEventTable(transaction_hash=data['transaction_hash'], **data['event']['data'])
+            CollectEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'collect'
         ]
         if collect_event_data:

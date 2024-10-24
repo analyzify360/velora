@@ -222,7 +222,7 @@ class VeloraValidator(Module):
 
     def _get_miner_prediction(
         self,
-        question: tuple[int, int],
+        question: dict,
         miner_info: tuple[list[str], Ss58Address],
     ) -> str | None:
         """
@@ -356,8 +356,12 @@ class VeloraValidator(Module):
         # Implement your custom prompt generation logic here
         start_datetime=time_range[0].strftime("%Y-%m-%d %H:%M:%S")
         end_datetime=time_range[1].strftime("%Y-%m-%d %H:%M:%S")
+        
+        req_token_pairs = []
+        for token_pair in token_pairs:
+            req_token_pairs.append((token_pair['token0'], token_pair['token1'], token_pair['fee']))
 
-        return {"token_pairs": token_pairs, "start_datetime": start_datetime, "end_datetime": end_datetime}
+        return {"token_pairs": req_token_pairs, "start_datetime": start_datetime, "end_datetime": end_datetime}
         
     def check_miner_answer(self, miner_prompt: dict, miner_answer: dict | None) -> bool:
         """
