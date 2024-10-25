@@ -80,7 +80,7 @@ If you have an alternative Ethereum node that you’d like to use, you can speci
 
 To run the miner using PM2 for process management:
 ```bash
-pm2 start "python3 -m src/subnet/miner/cli.py <your-key-name> --network mainnet --ip <ip address of registered module> --port <port number of registered module>" --name velora-miner
+pm2 start "python3 -m src.subnet.miner.cli <your-key-name> --network mainnet --ip <ip address of registered module> --port <port number of registered module>" --name velora-miner
 ```
 
 ### Running Validator with PM2
