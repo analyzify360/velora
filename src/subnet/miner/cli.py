@@ -19,7 +19,7 @@ def serve(
     netuid: int = 38,
     ip: str = typer.Option("0.0.0.0", help="IP to bind the server to"),
     port: int = typer.Option(9960, help="Port to bind the server to"),
-    network: str = typer.Option("testnet", help="Network to connect to"),
+    network: str = typer.Option("testnet", help="Network to connect to [`mainnet`, `testnet`]"),
     call_timeout: int = typer.Option(65, help="Timeout for the call"),
     
 ):
