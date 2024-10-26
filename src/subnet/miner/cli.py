@@ -1,4 +1,5 @@
 import typer
+import getpass
 from typing import Annotated
 from communex.compat.key import classic_load_key
 from keylimiter import TokenBucketLimiter
@@ -21,14 +22,13 @@ def serve(
     port: int = typer.Option(9960, help="Port to bind the server to"),
     network: str = typer.Option("testnet", help="Network to connect to [`mainnet`, `testnet`]"),
     call_timeout: int = typer.Option(65, help="Timeout for the call"),
-    
 ):
-    
-    key = classic_load_key(commune_key)
+    password = getpass.getpass(prompt="Enter the password:")
+    key = classic_load_key(commune_key, password=password)
     miner = Miner()
     refill_rate = 1 / 400
     # Implementing custom limit
-    bucket = TokenBucketLimiter(20, refill_rate)
+    bucket = TokenBucketLimiter(50, refill_rate)
     server = ModuleServer(miner, key, limiter=bucket, subnets_whitelist=[netuid], use_testnet = network == "testnet")
     app = server.get_fastapi_app()
 

@@ -1,4 +1,5 @@
-import typer 
+import typer
+import getpass
 from typing import Annotated
 
 from communex._common import get_node_url  # type: ignore
@@ -16,11 +17,12 @@ def serve(
     commune_key: Annotated[
         str, typer.Argument(help="Name of the key present in `~/.commune/key`")
     ],
-    netuid: int = typer.Option(38, help="Netuid of the subnet"),
+    netuid: int = typer.Option(30, help="Netuid of the subnet"),
     network: str = typer.Option("testnet", help="Network to connect to"),
     call_timeout: int = 65,
 ):
-    keypair = classic_load_key(commune_key)  # type: ignore
+    password = getpass.getpass(prompt="Enther the password:")
+    keypair = classic_load_key(commune_key, password=password)  # type: ignore
     settings = ValidatorSettings()  # type: ignore
 
     c_client = CommuneClient(get_node_url(use_testnet = network == "testnet"))  # type: ignore
