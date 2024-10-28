@@ -42,6 +42,7 @@ from db.db_manager import DBManager
 import random
 import os
 from dotenv import load_dotenv
+import wandb
 
 load_dotenv()
 
@@ -192,6 +193,7 @@ class VeloraValidator(Module):
         netuid: int,
         client: CommuneClient,
         call_timeout: int = 60,
+        wandb_on: int = False
     ) -> None:
         super().__init__()
         self.client = client
@@ -203,6 +205,32 @@ class VeloraValidator(Module):
         self.db_manager = DBManager()
         
         self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('ETHEREUM_RPC_NODE_URL'))
+        if wandb_on:
+            self.init_wandb()
+        
+    def __del__(self):
+        if self.wandb_running:
+            self.wandb_run.finish()
+    
+    def init_wandb(self):
+        wandb_api_key = os.getenv("WANDB_API_KEY")
+        if wandb_api_key is not None:
+            log("Logging into wandb.")
+            wandb.login(key=wandb_api_key)
+        else:
+            self.wandb_running = False
+            log("WANDB_API_KEY not found in environment variables.")
+            return
+        
+        self.wandb_run = None
+        self.wandb_run_start = None
+        if self.client == "finney":
+            self.wandb_project_name = "velora"
+        else:
+            self.wandb_project_name = "velora-test"
+        self.wandb_entity = "mltrev23"
+        self.new_wandb_run()
+        self.wandb_running = True
 
     def get_addresses(self, client: CommuneClient, netuid: int) -> dict[int, str]:
         """

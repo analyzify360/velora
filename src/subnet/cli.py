@@ -20,6 +20,7 @@ def serve(
     netuid: int = typer.Option(30, help="Netuid of the subnet"),
     network: str = typer.Option("testnet", help="Network to connect to"),
     call_timeout: int = 65,
+    wandb_on: bool = False
 ):
     password = getpass.getpass(prompt="Enther the password:")
     keypair = classic_load_key(commune_key, password=password)  # type: ignore
@@ -30,7 +31,8 @@ def serve(
         keypair,
         netuid,
         c_client,
-        call_timeout=call_timeout,
+        call_timeout,
+        wandb_on
     )
     validator.validation_loop(settings)
 
