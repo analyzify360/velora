@@ -171,10 +171,10 @@ class DBManager:
             for token_pair in token_pairs:
                 record = session.query(Tokenpairstable).filter_by(token0=token_pair[0], token1=token_pair[1], fee=token_pair[2]).first()
                 if record:
-                    record.completed = True
-                    session.commit()
+                    session.query(Tokenpairstable).filter_by(token0=token_pair[0], token1=token_pair[1], fee=token_pair[2]).update({Tokenpairstable.completed: True})
                 else:
                     return False
+            session.commit()
             return True
     def reset_token_pairs(self):
         """Reset the token pairs completed state"""
