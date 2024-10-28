@@ -39,6 +39,8 @@ import pool_data_fetcher
 
 from db.db_manager import DBManager
 
+from communex._common import ComxSettings  # type: ignore
+
 import random
 import os
 from dotenv import load_dotenv
@@ -49,6 +51,13 @@ load_dotenv()
 IP_REGEX = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+")
 
 EPS = 1e-10
+
+def check_url_testnet(url: str):
+    mainnet_urls = ComxSettings().NODE_URLS
+
+    if url in mainnet_urls:
+        return False
+    return True
 
 def set_weights(
     settings: ValidatorSettings,
@@ -224,10 +233,10 @@ class VeloraValidator(Module):
         
         self.wandb_run = None
         self.wandb_run_start = None
-        if self.client == "finney":
-            self.wandb_project_name = "velora"
-        else:
+        if check_url_testnet(self.client.url):
             self.wandb_project_name = "velora-test"
+        else:
+            self.wandb_project_name = "velora"
         self.wandb_entity = "mltrev23"
         self.new_wandb_run()
         self.wandb_running = True
