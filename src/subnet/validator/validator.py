@@ -374,7 +374,7 @@ class VeloraValidator(Module):
         if not token_pairs:
             self.db_manager.mark_time_range_as_complete(start, end)
             return None
-        return token_pairs[:15]
+        return token_pairs[:80]
 
     def get_miner_prompt(self) -> dict:
         """
