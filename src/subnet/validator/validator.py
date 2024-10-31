@@ -554,6 +554,8 @@ class VeloraValidator(Module):
         if not score_dict:
             log("No miner managed to give a valid answer")
             return None
+        
+        log(score_dict)
 
         # the blockchain call to set the weights
         _ = set_weights(settings, score_dict, self.netuid, self.client, self.key)
