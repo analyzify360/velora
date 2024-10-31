@@ -38,6 +38,7 @@ class SwapEventTable(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
     pool_address = Column(String, nullable=False)
+    block_number = Column(Integer, nullable=False)
     sender = Column(String, nullable=False)
     to = Column(String, nullable=False)
     amount0 = Column(String, nullable=False)  # I256 can be stored as String
@@ -51,6 +52,7 @@ class MintEventTable(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
     pool_address = Column(String, nullable=False)
+    block_number = Column(Integer, nullable=False)
     sender = Column(String, nullable=False)
     owner = Column(String, nullable=False)
     tick_lower = Column(Integer, nullable=False)  # int24 can be stored as Integer
@@ -64,6 +66,7 @@ class BurnEventTable(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
     pool_address = Column(String, nullable=False)
+    block_number = Column(Integer, nullable=False)
     owner = Column(String, nullable=False)
     tick_lower = Column(Integer, nullable=False)  # int24 can be stored as Integer
     tick_upper = Column(Integer, nullable=False)  # int24 can be stored as Integer
@@ -76,6 +79,7 @@ class CollectEventTable(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
     pool_address = Column(String, nullable=False)
+    block_number = Column(Integer, nullable=False)
     owner = Column(String, nullable=False)
     recipient = Column(String, nullable=False)
     tick_lower = Column(Integer, nullable=False)  # int24 can be stored as Integer
@@ -195,7 +199,7 @@ class DBManager:
 
         # Add the swap event data to the swap event table
         swap_event_data = [
-            SwapEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'],  **data['event']['data'])
+            SwapEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], block_number=data['block_number'], **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'swap'
         ]
         if swap_event_data:
@@ -205,7 +209,7 @@ class DBManager:
 
         # Add the mint event data to the mint event table
         mint_event_data = [
-            MintEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], **data['event']['data'])
+            MintEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], block_number=data['block_number'], **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'mint'
         ]
         if mint_event_data:
@@ -215,7 +219,7 @@ class DBManager:
 
         # Add the burn event data to the burn event table
         burn_event_data = [
-            BurnEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], **data['event']['data'])
+            BurnEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], block_number=data['block_number'], **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'burn'
         ]
         if burn_event_data:
@@ -225,7 +229,7 @@ class DBManager:
 
         # Add the collect event data to the collect event table
         collect_event_data = [
-            CollectEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], **data['event']['data'])
+            CollectEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], block_number=data['block_number'], **data['event']['data'])
             for data in pool_data if data['event']['type'] == 'collect'
         ]
         if collect_event_data:
