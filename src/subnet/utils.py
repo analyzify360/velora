@@ -17,7 +17,7 @@ def log(
     flush: Literal[False] = False,
 ):
     print(
-        f"[{iso_timestamp_now()}] " + msg,
+        f"[{iso_timestamp_now()}] {msg}",
         *values,
         sep=sep,
         end=end,
