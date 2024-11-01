@@ -29,6 +29,9 @@ crate-type = ["cdylib"]
 [dependencies.maturin]
 version = "0.10.0"
 
+[package.metadata.maturin]
+python-versions = ">=3.10 < 4.0"
+
 [patch.crates-io]
 der = { git = "https://github.com/tavakyan/formats.git", branch = "fix/downgrade-zeroize-version" }
 curve25519-dalek = { git = "https://github.com/solana-labs/curve25519-dalek.git", rev = "b500cdc2a920cd5bff9e2dd974d7b97349d61464" }
