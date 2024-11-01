@@ -26,9 +26,9 @@ def serve(
     
     key = classic_load_key(commune_key)
     miner = Miner()
-    refill_rate = 1 / 400
+    refill_rate = 1 / 40
     # Implementing custom limit
-    bucket = TokenBucketLimiter(20, refill_rate)
+    bucket = TokenBucketLimiter(50, refill_rate)
     server = ModuleServer(miner, key, limiter=bucket, subnets_whitelist=[netuid], use_testnet = network == "testnet")
     app = server.get_fastapi_app()
 
