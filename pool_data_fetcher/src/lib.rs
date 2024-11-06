@@ -14,10 +14,11 @@ use ethers::contract::EthLogDecode;
 use ethers::contract::EthEvent;
 use ethers::utils::hex;
 
+use std::collections::HashMap;
 use std::str::FromStr;
 use pyo3::{IntoPy, PyObject};
 use pyo3::types::{PyList, PyDict};
-use futures::future::join_all;
+use futures::{future::join_all, lock::Mutex};
 
 const NUM_BLOCKS: u64 = 100; // Number of blocks to consider for average block time calculation
 const FACTORY_ADDRESS: &str = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
@@ -188,6 +189,7 @@ struct PoolCreatedEvent {
 #[pyclass]
 pub struct BlockchainClient {
     provider: Arc<Provider<Http>>,
+    block_cache: Arc<Mutex<HashMap<u64, u64>>>,
 }
 
 #[pymethods]
@@ -195,12 +197,13 @@ impl BlockchainClient {
     #[new]
     fn new(rpc_url: String) -> Self {
         let provider: Arc<Provider<Http>> = Arc::new(Provider::<Http>::try_from(rpc_url).unwrap());
-        BlockchainClient { provider }
+        let block_cache: Arc<Mutex<HashMap<u64, u64>>> = Arc::new(Mutex::new(HashMap::new()));
+        BlockchainClient { provider, block_cache }
     }
 
     fn get_pool_events_by_token_pairs(&self, py: Python, token_pairs: Vec<(String, String, u32)> , from_block: u64, to_block: u64) -> PyResult<PyObject> {
         let rt = Runtime::new().unwrap();
-        match rt.block_on(get_pool_events_by_token_pairs(self.provider.clone(), token_pairs, U64::from(from_block), U64::from(to_block))) {
+        match rt.block_on(get_pool_events_by_token_pairs(self.provider.clone(), self.block_cache.clone(), token_pairs, U64::from(from_block), U64::from(to_block))) {
             Ok(result) => Ok(PyValue(serde_json::json!(result)).into_py(py)),
             Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -214,7 +217,7 @@ impl BlockchainClient {
 
     fn fetch_pool_data(&self, py: Python, token_pairs: Vec<(String, String, u32)>, start_datetime: String, end_datetime: String, interval: String) -> PyResult<PyObject> {
         let rt = Runtime::new().unwrap();
-        match rt.block_on(fetch_pool_data(self.provider.clone(), token_pairs, &start_datetime, &end_datetime, &interval)) {
+        match rt.block_on(fetch_pool_data(self.provider.clone(), self.block_cache.clone(), token_pairs, &start_datetime, &end_datetime, &interval)) {
             Ok(result) => Ok(PyValue(serde_json::json!(result)).into_py(py)),
             Err(e) => return Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
         }
@@ -269,6 +272,7 @@ async fn get_pool_events_by_pool_address(
 
 async fn get_pool_events_by_token_pairs(
     provider: Arc<Provider<Http>>,
+    block_cache: Arc<Mutex<HashMap<u64, u64>>>,
     token_pairs: Vec<(String, String, u32)>,
     from_block: U64,
     to_block: U64,
@@ -299,13 +303,24 @@ async fn get_pool_events_by_token_pairs(
 
     println!("Fetched pool address: {:?}", pool_addresses);
 
-    let logs = get_pool_events_by_pool_address(provider, pool_addresses, from_block, to_block).await?;
+    let logs = get_pool_events_by_pool_address(provider.clone(), pool_addresses, from_block, to_block).await?;
     
     let mut data = Vec::new();
     for log in logs {
         match decode_uniswap_event(&log) {
             Ok(event) => {
                 let (uniswap_event, transaction_hash, block_number) = event;
+                let timestamp = {
+                    let mut cache = block_cache.lock().await;
+                    if let Some(&cached_timestamp) = cache.get(&block_number) {
+                        cached_timestamp
+                    } else {
+                        let block = provider.get_block(block_number).await?.ok_or("Block not found")?;
+                        let timestamp = block.timestamp.as_u64();
+                        cache.insert(block_number, timestamp);
+                        timestamp
+                    }
+                };
                 let mut uniswap_event_with_metadata = match uniswap_event {
                     UniswapEvent::Swap(event) => serde_json::json!({ "event": { "type": "swap", "data": event } }),
                     UniswapEvent::Mint(event) => serde_json::json!({ "event": { "type": "mint", "data": event } }),
@@ -314,6 +329,7 @@ async fn get_pool_events_by_token_pairs(
                 };
                 uniswap_event_with_metadata.as_object_mut().unwrap().insert("transaction_hash".to_string(), serde_json::Value::String(hex::encode(transaction_hash.as_bytes())));
                 uniswap_event_with_metadata.as_object_mut().unwrap().insert("block_number".to_string(), serde_json::Value::Number(serde_json::Number::from(block_number)));
+                uniswap_event_with_metadata.as_object_mut().unwrap().insert("timestamp".to_string(), serde_json::Value::Number(serde_json::Number::from(timestamp)));
                 uniswap_event_with_metadata.as_object_mut().unwrap().insert("pool_address".to_string(), serde_json::Value::String(format!("{:?}", log.address)));
                 data.push(uniswap_event_with_metadata);
             },
@@ -424,11 +440,11 @@ async fn get_block_number_from_timestamp(
     Ok(low)
 }
 
-async fn fetch_pool_data(provider: Arc::<Provider<Http>>, token_pairs: Vec<(String, String, u32)>, start_datetime: &str, end_datetime: &str, _interval: &str) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_pool_data(provider: Arc::<Provider<Http>>, block_cache: Arc<Mutex<HashMap<u64, u64>>>, token_pairs: Vec<(String, String, u32)>, start_datetime: &str, end_datetime: &str, _interval: &str) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
     // let date_str = "2024-09-27 19:34:56";
     let (from_block, to_block) = get_block_number_range(provider.clone(), start_datetime, end_datetime).await?;
 
-    let pool_events = get_pool_events_by_token_pairs(provider.clone(), token_pairs, from_block, to_block,).await?;
+    let pool_events = get_pool_events_by_token_pairs(provider.clone(), block_cache.clone(), token_pairs, from_block, to_block,).await?;
     Ok(pool_events)
 }
 
@@ -493,9 +509,10 @@ mod tests {
         let fee = 3000;
 
         let provider = Arc::new(Provider::<Http>::try_from(rpc_url).unwrap());
+        let block_cache = Arc::new(Mutex::new(HashMap::new()));
         let token_pairs = vec![(token0.to_string(), token1.to_string(), fee)];
 
-        let __result = fetch_pool_data(provider, token_pairs, start_datetime, end_datetime, interval).await;
+        let __result = fetch_pool_data(provider, block_cache, token_pairs, start_datetime, end_datetime, interval).await;
         assert!(__result.is_ok());
     }
 }
