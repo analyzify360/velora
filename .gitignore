@@ -22,3 +22,6 @@ jwt/
 rust_backend/target/
 jwt/
 /config.toml
+
+venv-3.11/
+venv-3.12/
