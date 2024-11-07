@@ -39,15 +39,25 @@ import pool_data_fetcher
 
 from db.db_manager import DBManager
 
+from communex._common import ComxSettings  # type: ignore
+
 import random
 import os
 from dotenv import load_dotenv
+import wandb
 
 load_dotenv()
 
 IP_REGEX = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+")
 
 EPS = 1e-10
+
+def check_url_testnet(url: str):
+    mainnet_urls = ComxSettings().NODE_URLS
+
+    if url in mainnet_urls:
+        return False
+    return True
 
 def set_weights(
     settings: ValidatorSettings,
@@ -192,6 +202,7 @@ class VeloraValidator(Module):
         netuid: int,
         client: CommuneClient,
         call_timeout: int = 60,
+        wandb_on: int = False
     ) -> None:
         super().__init__()
         self.client = client
@@ -203,6 +214,32 @@ class VeloraValidator(Module):
         self.db_manager = DBManager()
         
         self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('ETHEREUM_RPC_NODE_URL'))
+        if wandb_on:
+            self.init_wandb()
+        
+    def __del__(self):
+        if self.wandb_running:
+            self.wandb_run.finish()
+    
+    def init_wandb(self):
+        wandb_api_key = os.getenv("WANDB_API_KEY")
+        if wandb_api_key is not None:
+            log("Logging into wandb.")
+            wandb.login(key=wandb_api_key)
+        else:
+            self.wandb_running = False
+            log("WANDB_API_KEY not found in environment variables.")
+            return
+        
+        self.wandb_run = None
+        self.wandb_run_start = None
+        if check_url_testnet(self.client.url):
+            self.wandb_project_name = "velora-test"
+        else:
+            self.wandb_project_name = "velora"
+        self.wandb_entity = "mltrev23"
+        self.new_wandb_run()
+        self.wandb_running = True
 
     def get_addresses(self, client: CommuneClient, netuid: int) -> dict[int, str]:
         """
@@ -337,7 +374,7 @@ class VeloraValidator(Module):
         if not token_pairs:
             self.db_manager.mark_time_range_as_complete(start, end)
             return None
-        return token_pairs[:15]
+        return token_pairs[:80]
 
     def get_miner_prompt(self) -> dict:
         """
@@ -517,6 +554,8 @@ class VeloraValidator(Module):
         if not score_dict:
             log("No miner managed to give a valid answer")
             return None
+        
+        log(score_dict)
 
         # the blockchain call to set the weights
         _ = set_weights(settings, score_dict, self.netuid, self.client, self.key)

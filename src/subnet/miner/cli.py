@@ -23,10 +23,10 @@ def serve(
     network: str = typer.Option("testnet", help="Network to connect to [`mainnet`, `testnet`]"),
     call_timeout: int = typer.Option(65, help="Timeout for the call"),
 ):
-    password = getpass.getpass(prompt="Enter the password:")
+    password = getpass.getpass(prompt="Enter the password for your key:")
     key = classic_load_key(commune_key, password=password)
     miner = Miner()
-    refill_rate = 1 / 400
+    refill_rate = 1 / 40
     # Implementing custom limit
     bucket = TokenBucketLimiter(50, refill_rate)
     server = ModuleServer(miner, key, limiter=bucket, subnets_whitelist=[netuid], use_testnet = network == "testnet")
