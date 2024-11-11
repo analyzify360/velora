@@ -34,7 +34,7 @@ from communex.types import Ss58Address  # type: ignore
 from substrateinterface import Keypair  # type: ignore
 
 from ._config import ValidatorSettings
-from ..utils import log
+from utils.log import log
 import pool_data_fetcher
 
 from db.db_manager import DBManager
@@ -534,6 +534,7 @@ class VeloraValidator(Module):
             self.modules_info[module_id] = (module_addr, modules_keys[module_id])
 
         score_dict: dict[int, float] = {}
+        # Check range
 
         # Check pool events data
         pool_event_check_synapse = self.get_pool_event_synapse()
