@@ -190,8 +190,8 @@ class VeloraValidator(Module):
     Methods:
         get_modules: Retrieve all module addresses from the subnet.
         _get_miner_prediction: Prompt a miner module to generate an answer to the given question.
-        _score_miner: Score the generated answer against the validator's own answer.
-        get_miner_prompt: Generate a prompt for the miner modules.
+        check_pool_event_accuracy: Score the generated answer against the validator's own answer.
+        get_pool_event_synapse: Generate a prompt for the miner modules.
         validate_step: Perform a validation step by generating questions, prompting modules, and scoring answers.
         validation_loop: Run the validation loop continuously based on the provided settings.
     """
@@ -296,7 +296,7 @@ class VeloraValidator(Module):
             miner_answer = None
         return miner_answer
 
-    def _score_miner(self, miner_answer: dict | None, ground_truth: dict) -> float:
+    def check_pool_event_accuracy(self, miner_answer: dict | None, ground_truth: dict) -> float:
         """
         Score the generated answer against the validator's own answer.
 
@@ -376,7 +376,7 @@ class VeloraValidator(Module):
             return None
         return token_pairs[:80]
 
-    def get_miner_prompt(self) -> dict:
+    def get_pool_event_synapse(self) -> dict:
         """
         Generate a prompt for the miner modules.
 
@@ -400,7 +400,7 @@ class VeloraValidator(Module):
 
         return {"token_pairs": req_token_pairs, "start_datetime": start_datetime, "end_datetime": end_datetime}
         
-    def check_miner_answer(self, miner_prompt: dict, miner_answer: dict | None) -> bool:
+    def check_miner_answer_pool_event(self, miner_prompt: dict, miner_answer: dict | None) -> bool:
         """
         Check if the miner answers are valid.
         
@@ -456,7 +456,7 @@ class VeloraValidator(Module):
         if not token_pairs:
             self.db_manager.mark_time_range_as_complete(start_datetime, end_datetime)
 
-    def score_miners(self, miner_results, trust_miner_result):
+    def score_pool_events(self, miner_results, trust_miner_result):
         """
         Score the miners based on their answers.
         
@@ -470,7 +470,7 @@ class VeloraValidator(Module):
                 log(f"Skipping miner {key} that didn't answer")
                 continue
 
-            score = self._score_miner(miner_answer, trust_miner_result)
+            score = self.check_pool_event_accuracy(miner_answer, trust_miner_result)
             time.sleep(0.5)
             # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
             assert score <= 1
@@ -489,6 +489,20 @@ class VeloraValidator(Module):
         overall_score = {key: ((accuracy_score[key] + process_time_score[key]) / 2) for key in accuracy_score.keys()}
         
         return overall_score
+    async def get_miner_answer(self, modules_info, synapse):
+        get_answers = partial(self._get_miner_prediction, synapse)
+
+        log(f"Selected the following miners: {modules_info.keys()}")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            it = executor.map(get_answers, modules_info.values())
+            answers = [*it]
+            
+        if not answers:
+            log("No miner managed to give an answer")
+            return None
+        
+        return answers
     
     async def validate_step(
         self, syntia_netuid: int, settings: ValidatorSettings
@@ -510,33 +524,24 @@ class VeloraValidator(Module):
         if val_ss58 not in modules_keys.values():
             raise RuntimeError(f"validator key {val_ss58} is not registered in subnet")
 
-        modules_info: dict[int, tuple[list[str], Ss58Address]] = {}
+        self.modules_info: dict[int, tuple[list[str], Ss58Address]] = {}
 
         modules_filtered_address = get_ip_port(modules_adresses)
         for module_id in modules_keys.keys():
             module_addr = modules_filtered_address.get(module_id, None)
             if not module_addr:
                 continue
-            modules_info[module_id] = (module_addr, modules_keys[module_id])
+            self.modules_info[module_id] = (module_addr, modules_keys[module_id])
 
         score_dict: dict[int, float] = {}
 
         # Check pool events data
         pool_event_check_synapse = self.get_pool_event_synapse()
-        get_pool_event = partial(self._get_miner_prediction, pool_event_check_synapse)
-
-        log(f"Selected the following miners: {modules_info.keys()}")
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            it = executor.map(get_pool_event, modules_info.values())
-            pool_events = [*it]
+        pool_events = self.get_miner_answer(pool_event_check_synapse)
         
-        miner_results_pool_events = list(zip(modules_info.keys(), pool_events))
-        if not miner_results_pool_events:
-            log("No miner managed to give an answer")
-            return None
+        miner_results_pool_events = list(zip(self.modules_info.keys(), pool_events))
         
-        overall_hashes = [miner_answer['overall_data_hash'] for miner_answer in pool_events if miner_answer != None]
+        overall_hashes = [pool_event['overall_data_hash'] for pool_event in pool_events if pool_event != None]
         if not overall_hashes:
             log("No miner managed to give a valid answer")
             return None
@@ -544,13 +549,20 @@ class VeloraValidator(Module):
         
         trust_miner_results = [(key, pool_event) for key, pool_event in miner_results_pool_events if pool_event !=None and pool_event['overall_data_hash'] == most_common_hash]
         
-        if not self.check_miner_answer(pool_event_check_synapse, trust_miner_results[0][1]):
+        if not self.check_miner_answer_pool_event(pool_event_check_synapse, trust_miner_results[0][1]):
             log("Miner answers are not valid")
             return None
         
         # self.save_pool_data(pool_event_check_synapse, trust_miner_results[0][1])
 
-        score_dict = self.score_miners(pool_event_check_synapse, trust_miner_results[0][1])
+        score_pool_events = self.score_pool_events(pool_event_check_synapse, trust_miner_results[0][1])
+        
+        # Check signals
+        signal_event_synapse = self.get_signal_event_synapse()
+        signal_events = self.get_miner_answer(signal_event_synapse)
+        
+        miner_results_signal_events = list(zip(self.modules_info.keys(), signal_events))
+        overall_hashes = []
 
         if not score_dict:
             log("No miner managed to give a valid answer")
