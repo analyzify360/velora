@@ -521,35 +521,36 @@ class VeloraValidator(Module):
 
         score_dict: dict[int, float] = {}
 
-        miner_prompt = self.get_miner_prompt()
-        get_miner_prediction = partial(self._get_miner_prediction, miner_prompt)
+        # Check pool events data
+        pool_event_check_synapse = self.get_pool_event_synapse()
+        get_pool_event = partial(self._get_miner_prediction, pool_event_check_synapse)
 
         log(f"Selected the following miners: {modules_info.keys()}")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            it = executor.map(get_miner_prediction, modules_info.values())
-            miner_answers = [*it]
+            it = executor.map(get_pool_event, modules_info.values())
+            pool_events = [*it]
         
-        miner_results = list(zip(modules_info.keys(), miner_answers))
-        if not miner_results:
+        miner_results_pool_events = list(zip(modules_info.keys(), pool_events))
+        if not miner_results_pool_events:
             log("No miner managed to give an answer")
             return None
         
-        overall_hashes = [miner_answer['overall_data_hash'] for miner_answer in miner_answers if miner_answer != None]
+        overall_hashes = [miner_answer['overall_data_hash'] for miner_answer in pool_events if miner_answer != None]
         if not overall_hashes:
             log("No miner managed to give a valid answer")
             return None
         most_common_hash = max(set(overall_hashes), key=overall_hashes.count)
         
-        trust_miner_results = [(key, miner_answer) for key, miner_answer in miner_results if miner_answer !=None and miner_answer['overall_data_hash'] == most_common_hash]
+        trust_miner_results = [(key, pool_event) for key, pool_event in miner_results_pool_events if pool_event !=None and pool_event['overall_data_hash'] == most_common_hash]
         
-        if not self.check_miner_answer(miner_prompt, trust_miner_results[0][1]):
+        if not self.check_miner_answer(pool_event_check_synapse, trust_miner_results[0][1]):
             log("Miner answers are not valid")
             return None
         
-        self.save_pool_data(miner_prompt, trust_miner_results[0][1])
+        # self.save_pool_data(pool_event_check_synapse, trust_miner_results[0][1])
 
-        score_dict = self.score_miners(miner_results, trust_miner_results[0][1])
+        score_dict = self.score_miners(pool_event_check_synapse, trust_miner_results[0][1])
 
         if not score_dict:
             log("No miner managed to give a valid answer")
