@@ -8,7 +8,7 @@ import uvicorn
 import os
 from dotenv import load_dotenv
 
-from src.subnet.miner.miner import Miner
+from src.miner.miner import Miner
 
 load_dotenv()
 

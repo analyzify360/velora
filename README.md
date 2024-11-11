@@ -52,7 +52,7 @@ If you have an alternative Ethereum node that you’d like to use, you can speci
 
 4. To run the miner:
    ```bash
-   python3 -m src.subnet.miner.cli <your-key-name> <your-subnet-netuid> [--network <text>] [--ip <text>] [--port <number>]
+   python3 -m src.miner.cli <your-key-name> <your-subnet-netuid> [--network <text>] [--ip <text>] [--port <number>]
    ```
 
 ### Running Validator
@@ -73,21 +73,21 @@ If you have an alternative Ethereum node that you’d like to use, you can speci
 
 5. To run the validator:
    ```bash
-   python3 -m src.subnet.cli <name-of-your-com-key> [--network <text>] [--ip <text>] [--port <number>]
+   python3 -m src.cli <name-of-your-com-key> [--network <text>] [--ip <text>] [--port <number>]
    ```
 
 ### Running Miner with PM2
 
 To run the miner using PM2 for process management:
 ```bash
-pm2 start "python3 -m src.subnet.miner.cli <your-key-name> --network mainnet --ip <ip address of registered module> --port <port number of registered module>" --name velora-miner
+pm2 start "python3 -m src.miner.cli <your-key-name> --network mainnet --ip <ip address of registered module> --port <port number of registered module>" --name velora-miner
 ```
 
 ### Running Validator with PM2
 
 To run the validator using PM2:
 ```bash
-pm2 start "python3 -m src.subnet.cli <your-key-name> --network mainnet --ip <ip address of registered module> --port <port number of registered module>" --name velora-validator
+pm2 start "python3 -m src.cli <your-key-name> --network mainnet --ip <ip address of registered module> --port <port number of registered module>" --name velora-validator
 ```
 
 ## Scoring Miners
