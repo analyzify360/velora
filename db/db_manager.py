@@ -191,6 +191,42 @@ class DBManager:
         with self.Session() as session:
             session.query(Tokenpairstable).update({Tokenpairstable.completed: False})
             session.commit()
+    def fetch_pool_events(self, start_block: int, end_block: int):
+        swap_events = self.fetch_swap_events(start_block, end_block)
+        mint_events = self.fetch_mint_events(start_block, end_block)
+        burn_events = self.fetch_burn_events(start_block, end_block)
+        collect_events = self.fetch_collect_events(start_block, end_block)
+        
+        return swap_events + mint_events + burn_events + collect_events
+        
+    def fetch_swap_events(self, start_block: int, end_block: int):
+        with self.Session() as session:
+            events = session.query(SwapEventTable).filter(
+                SwapEventTable.block_number >= start_block,
+                SwapEventTable.block_number <= end_block
+            ).all()
+        return events
+    def fetch_mint_events(self, start_block: int, end_block: int):
+        with self.Session() as session:
+            events = session.query(MintEventTable).filter(
+                MintEventTable.block_number >= start_block,
+                MintEventTable.block_number <= end_block
+            ).all()
+        return events
+    def fetch_burn_events(self, start_block: int, end_block: int):
+        with self.Session() as session:
+            events = session.query(BurnEventTable).filter(
+                BurnEventTable.block_number >= start_block,
+                BurnEventTable.block_number <= end_block
+            ).all()
+        return events
+    def fetch_collect_events(self, start_block: int, end_block: int):
+        with self.Session() as session:
+            events = session.query(CollectEventTable).filter(
+                CollectEventTable.block_number >= start_block,
+                CollectEventTable.block_number <= end_block
+            ).all()
+        return events
 
     def add_pool_data(self, pool_data: List[Dict]) -> None:
         """Add pool data to the pool data table and related event tables."""
