@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, inspect, insert
+from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, inspect, insert, desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from typing import Union, List, Dict
@@ -125,6 +125,12 @@ class DBManager:
         with self.Session() as session:
             not_completed_data = session.query(Timetable).filter_by(completed=False).all()
             return [{"start": row.start, "end": row.end, "completed": row.completed} for row in not_completed_data]
+
+    def fetch_completed_time(self) -> List[Dict[str, Union[Date, bool]]]:
+        """Fetch all not completed time ranges from the timetable."""
+        with self.Session() as session:
+            row = session.query(Timetable).filter_by(completed=True).order_by(desc(Timetable.start)).first()
+            return {"start": row.start, "end": row.end, "completed": row.completed}
     
     def fetch_last_time_range(self) -> Dict[str, Union[Date, bool]]:
         """Fetch the last time range from the timetable."""
@@ -161,7 +167,7 @@ class DBManager:
         """Fetch all token pairs from the corresponding table."""
         with self.Session() as session:
             token_pairs = session.query(Tokenpairstable).all()
-            return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed} for row in token_pairs]
+            return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed, 'pool_address': row.pool} for row in token_pairs]
 
     def fetch_incompleted_token_pairs(self) -> List[Dict[str, Union[str, int, bool]]]:
         """Fetch all incompleted token pairs from the corresponding table."""

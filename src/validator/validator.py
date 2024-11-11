@@ -35,7 +35,7 @@ from substrateinterface import Keypair  # type: ignore
 
 from ._config import ValidatorSettings
 from utils.log import log
-from utils.protocols import HealthCheckSynapse, PoolEventSynapse, SignalEventSynapse, PredictionEventSynapse
+from utils.protocols import HealthCheckSynapse, PoolEventSynapse, SignalEventSynapse, PredictionSynapse
 import pool_data_fetcher
 
 from communex._common import ComxSettings  # type: ignore
@@ -255,7 +255,7 @@ class VeloraValidator(Module):
 
     def _get_miner_prediction(
         self,
-        question: dict,
+        synapse,
         miner_info: tuple[list[str], Ss58Address],
     ) -> str | None:
         """
@@ -276,9 +276,9 @@ class VeloraValidator(Module):
             current_time = datetime.now()
             miner_answer = asyncio.run(
                 client.call(
-                    "fetch",
+                    f'forward{synapse.synapse_name}',
                     miner_key,
-                    {"query": question},
+                    {"synapse": synapse},
                     timeout=self.call_timeout,  #  type: ignore
                 )
             )
