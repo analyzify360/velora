@@ -555,7 +555,7 @@ class VeloraValidator(Module):
         
         # self.save_pool_data(pool_event_check_synapse, trust_miner_results[0][1])
 
-        score_pool_events = self.score_pool_events(pool_event_check_synapse, trust_miner_results[0][1])
+        pool_events_score = self.score_pool_events(miner_results_pool_events, trust_miner_results[0][1])
         
         # Check signals
         signal_event_synapse = self.get_signal_event_synapse()
@@ -563,6 +563,8 @@ class VeloraValidator(Module):
         
         miner_results_signal_events = list(zip(self.modules_info.keys(), signal_events))
         overall_hashes = []
+        
+        signal_events_score = self.score_signal_events(miner_results_signal_events, trust_miner_results[0][1])
 
         if not score_dict:
             log("No miner managed to give a valid answer")
