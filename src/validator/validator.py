@@ -38,8 +38,6 @@ from utils.log import log
 from utils.protocols import HealthCheckSynapse, PoolEventSynapse, SignalEventSynapse, PredictionEventSynapse
 import pool_data_fetcher
 
-from db.db_manager import DBManager
-
 from communex._common import ComxSettings  # type: ignore
 
 import random
@@ -211,8 +209,6 @@ class VeloraValidator(Module):
         self.val_model = "foo"
         self.call_timeout = call_timeout
         
-        self.db_manager = DBManager()
-        
         self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('ETHEREUM_RPC_NODE_URL'))
         if wandb_on:
             self.init_wandb()
@@ -318,65 +314,8 @@ class VeloraValidator(Module):
         accuracy_score = ((cnt_correct_entry - cnt_all * 0.75) / cnt_all * 4) ** 3
 
         return accuracy_score
-    
-    def add_new_time_range(self) -> None:
-        """
-        Add a new timetable entry to the database.
-        """
-        last_time_range = self.db_manager.fetch_last_time_range()
-        if last_time_range == None:
-            start = datetime(2021, 5, 4)
-            end = datetime(2021, 5, 5)
-        else:
-            start = last_time_range["end"]
-            end = last_time_range["end"] + timedelta(days=1)
-        
-        self.db_manager.add_timetable_entry(start, end)
-        
-        start_date_str = start.strftime("%Y-%m-%d %H:%M:%S")
-        end_date_str = end.strftime("%Y-%m-%d %H:%M:%S")
-        
-        log(f"Fetching token pairs between {start_date_str} and {end_date_str}")
-        
-        token_pairs = self.pool_data_fetcher.get_pool_created_events_between_two_timestamps(start_date_str, end_date_str)
-        self.db_manager.reset_token_pairs()
-        self.db_manager.add_token_pairs(token_pairs)
-        
-        return start, end
-    
-    def get_time_range(self) -> tuple[datetime, datetime]:
-        """
-        Get the time range for the miner modules.
 
-        Returns:
-            The time range for the miner modules.
-        """
-        incompleted_time_range = self.db_manager.fetch_incompleted_time_range()
-        
-        if not incompleted_time_range:
-            return self.add_new_time_range()
-        else:
-            return incompleted_time_range[0]["start"], incompleted_time_range[0]["end"]
-    
-    def get_token_pairs(self, start: datetime, end: datetime) -> list[dict[str, str]]:
-        """
-        Get the token pairs for the miner modules.
-
-        Args:
-            start: The start datetime.
-            end: The end datetime.
-
-        Returns:
-            The token pairs for the miner modules.
-        """
-        token_pairs = self.db_manager.fetch_incompleted_token_pairs()
-        
-        if not token_pairs:
-            self.db_manager.mark_time_range_as_complete(start, end)
-            return None
-        return token_pairs[:80]
-
-    def get_pool_event_synapse(self) -> dict:
+    def get_pool_event_synapse(self, healthy_data) -> dict:
         """
         Generate a prompt for the miner modules.
 
@@ -433,29 +372,6 @@ class VeloraValidator(Module):
                     return True
         return False
 
-    def save_pool_data(self, miner_prompt: dict, miner_answer: dict) -> None:
-        """
-        Save the pool data to the database.
-        
-        Args:
-            miner_prompt: The prompt for the miner modules.
-            miner_answer: The generated answer from the miner module
-        """
-        token_pairs = miner_prompt.get("token_pairs", None)
-        start_datetime = miner_prompt.get("start_datetime", None)
-        end_datetime = miner_prompt.get("end_datetime", None)
-        
-        miner_data = miner_answer.get("data", None)
-        
-        self.db_manager.add_pool_data(miner_data)
-        
-        self.db_manager.mark_token_pairs_as_complete(token_pairs)
-        
-        token_pairs = self.db_manager.fetch_incompleted_token_pairs()
-        
-        if not token_pairs:
-            self.db_manager.mark_time_range_as_complete(start_datetime, end_datetime)
-
     def score_pool_events(self, miner_results, trust_miner_result):
         """
         Score the miners based on their answers.
@@ -489,13 +405,14 @@ class VeloraValidator(Module):
         overall_score = {key: ((accuracy_score[key] + process_time_score[key]) / 2) for key in accuracy_score.keys()}
         
         return overall_score
-    async def get_miner_answer(self, modules_info, synapse):
-        get_answers = partial(self._get_miner_prediction, synapse)
-
+    
+    async def get_miner_answer(self, modules_info, synapses):
+        if not isinstance(synapses, list):
+            synapses = [synapses] * len(modules_info)
         log(f"Selected the following miners: {modules_info.keys()}")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            it = executor.map(get_answers, modules_info.values())
+            it = executor.map(lambda x: self._get_miner_prediction(x[0], x[1]), list(zip(synapses, modules_info.values())))
             answers = [*it]
             
         if not answers:
@@ -503,6 +420,7 @@ class VeloraValidator(Module):
             return None
         
         return answers
+    
     def retrieve_miner_information(self, velora_netuid):
         modules_adresses = self.get_addresses(self.client, velora_netuid)
         modules_keys = self.client.query_map_key(velora_netuid)
@@ -534,17 +452,17 @@ class VeloraValidator(Module):
         """
 
         # retrive the miner information
-        self.modules_info = self.retrieve_miner_information(velora_netuid)
+        modules_info = self.retrieve_miner_information(velora_netuid)
 
         score_dict: dict[int, float] = {}
         # Check range
         health_check_synapse = HealthCheckSynapse()
-        health_data = self.get_miner_answer(health_check_synapse)
+        health_data = self.get_miner_answer(modules_info, health_check_synapse)
         health_score = self.get_health_score(health_data)
 
         # Check pool events data
         pool_event_check_synapse = self.get_pool_event_synapse(health_data)
-        pool_events = self.get_miner_answer(pool_event_check_synapse)
+        pool_events = self.get_miner_answer(modules_info, pool_event_check_synapse)
         
         miner_results_pool_events = list(zip(self.modules_info.keys(), pool_events))
         
@@ -566,7 +484,7 @@ class VeloraValidator(Module):
         
         # Check signals
         signal_event_synapse = self.get_signal_event_synapse()
-        signal_events = self.get_miner_answer(signal_event_synapse)
+        signal_events = self.get_miner_answer(modules_info, signal_event_synapse)
         
         miner_results_signal_events = list(zip(self.modules_info.keys(), signal_events))
         overall_hashes = []
