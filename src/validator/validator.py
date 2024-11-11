@@ -35,6 +35,7 @@ from substrateinterface import Keypair  # type: ignore
 
 from ._config import ValidatorSettings
 from utils.log import log
+from utils.protocols import HealthCheckSynapse, PoolEventSynapse, SignalEventSynapse, PredictionEventSynapse
 import pool_data_fetcher
 
 from db.db_manager import DBManager
@@ -174,7 +175,6 @@ def get_ip_port(modules_adresses: dict[int, str]):
         id: x.group(0).split(":") for id, x in filtered_addr.items() if x is not None
     }
     return ip_port
-
 
 class VeloraValidator(Module):
     """
@@ -503,9 +503,25 @@ class VeloraValidator(Module):
             return None
         
         return answers
+    def retrieve_miner_information(self, velora_netuid):
+        modules_adresses = self.get_addresses(self.client, velora_netuid)
+        modules_keys = self.client.query_map_key(velora_netuid)
+        val_ss58 = self.key.ss58_address
+        if val_ss58 not in modules_keys.values():
+            raise RuntimeError(f"validator key {val_ss58} is not registered in subnet")
+
+        modules_info: dict[int, tuple[list[str], Ss58Address]] = {}
+
+        modules_filtered_address = get_ip_port(modules_adresses)
+        for module_id in modules_keys.keys():
+            module_addr = modules_filtered_address.get(module_id, None)
+            if not module_addr:
+                continue
+            modules_info[module_id] = (module_addr, modules_keys[module_id])
+        return modules_info
     
     async def validate_step(
-        self, syntia_netuid: int, settings: ValidatorSettings
+        self, velora_netuid: int, settings: ValidatorSettings
     ) -> None:
         """
         Perform a validation step.
@@ -514,30 +530,20 @@ class VeloraValidator(Module):
         and scores the generated answers against the validator's own answers.
 
         Args:
-            syntia_netuid: The network UID of the subnet.
+            velora_netuid: The network UID of the subnet.
         """
 
         # retrive the miner information
-        modules_adresses = self.get_addresses(self.client, syntia_netuid)
-        modules_keys = self.client.query_map_key(syntia_netuid)
-        val_ss58 = self.key.ss58_address
-        if val_ss58 not in modules_keys.values():
-            raise RuntimeError(f"validator key {val_ss58} is not registered in subnet")
-
-        self.modules_info: dict[int, tuple[list[str], Ss58Address]] = {}
-
-        modules_filtered_address = get_ip_port(modules_adresses)
-        for module_id in modules_keys.keys():
-            module_addr = modules_filtered_address.get(module_id, None)
-            if not module_addr:
-                continue
-            self.modules_info[module_id] = (module_addr, modules_keys[module_id])
+        self.modules_info = self.retrieve_miner_information(velora_netuid)
 
         score_dict: dict[int, float] = {}
         # Check range
+        health_check_synapse = HealthCheckSynapse()
+        health_data = self.get_miner_answer(health_check_synapse)
+        health_score = self.get_health_score(health_data)
 
         # Check pool events data
-        pool_event_check_synapse = self.get_pool_event_synapse()
+        pool_event_check_synapse = self.get_pool_event_synapse(health_data)
         pool_events = self.get_miner_answer(pool_event_check_synapse)
         
         miner_results_pool_events = list(zip(self.modules_info.keys(), pool_events))
