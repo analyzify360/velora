@@ -322,20 +322,6 @@ class VeloraValidator(Module):
         Returns:
             The generated prompt for the miner modules.
         """
-        while True:
-            time_range = self.get_time_range()
-            token_pairs = self.get_token_pairs(time_range[0], time_range[1])
-            
-            if token_pairs:
-                break
-
-        # Implement your custom prompt generation logic here
-        start_datetime=time_range[0].strftime("%Y-%m-%d %H:%M:%S")
-        end_datetime=time_range[1].strftime("%Y-%m-%d %H:%M:%S")
-        
-        req_token_pairs = []
-        for token_pair in token_pairs:
-            req_token_pairs.append((token_pair['token0'], token_pair['token1'], token_pair['fee']))
 
         return {"token_pairs": req_token_pairs, "start_datetime": start_datetime, "end_datetime": end_datetime}
         
