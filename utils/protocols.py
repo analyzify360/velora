@@ -4,7 +4,7 @@ class HealthCheckSynapse:
     synapse_name: str = 'HealthCheckSynapse'
 
 class HealthCheckResponse:
-    time_completed: datetime
+    time_completed: int
     pool_addresses: list[str]
     
 class PoolEventSynapse:
