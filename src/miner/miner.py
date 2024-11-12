@@ -37,6 +37,7 @@ class Miner(Module):
         
         return HealthCheckResponse(time_completed = time_completed, pool_addresses = pool_addresses)
         
+    @endpoint
     def forwardPoolEventSynapse(self, synapse: PoolEventSynapse):
         # Generate a response from scraping the rpc server
         block_number_start, block_number_end = self.pool_data_fetcher.get_block_number_range(synapse.start_datetime, synapse.end_datetime)
@@ -46,9 +47,13 @@ class Miner(Module):
         
         return PoolEventResponse(data = pool_events, overall_data_hash = data_hash)
     
+    @endpoint
     def forwardSignalEventSynapse(self, synapse: SignalEventSynapse):
-        pass
+        signals = self.db_manager.fetch_signals(synapse.timestamp, synapse.pool_address)
+        
+        return SignalEventResponse(data = signals)
     
+    @endpoint
     def forwardPredictionSynapse(self, synapse: PredictionSynapse):
         pass
 

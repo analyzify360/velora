@@ -19,15 +19,25 @@ class PoolEventResponse:
 
 class SignalEventSynapse:
     synapse_name: str = 'SignalEventSynapse'
-    timestamp: float
+    timestamp: int
     pool_address: str
 
 class SignalEventResponse:
-    pass
+    """
+        List of Signals
+        
+        Signal format:
+            {
+                'price': 0.24,
+                'liquidity': 1.89,
+                'volume': 11579
+            }
+    """
+    data: list[dict]
     
 class PredictionSynapse:
     synapse_name: str = 'PredictionSynapse'
-    timestamp: float
+    timestamp: int
     
 class PredictionSynapse:
     pass

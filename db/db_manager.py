@@ -87,6 +87,14 @@ class CollectEventTable(Base):
     amount0 = Column(String, nullable=False)  # U256 can be stored as String
     amount1 = Column(String, nullable=False)  # U256 can be stored as String
 
+class UniswapSignalsTable(Base):
+    __tablename__ = 'uniswap_signals'
+    timestamp = Column(Integer, nullable=False, primary_key=True)
+    pool_address = Column(String, nullable=False, primary_key=True)
+    price = Column(String)
+    liquidity = Column(String)
+    volume = Column(String)
+    
 class DBManager:
 
     def __init__(self, url = get_postgres_url()) -> None:
@@ -191,6 +199,13 @@ class DBManager:
         with self.Session() as session:
             session.query(Tokenpairstable).update({Tokenpairstable.completed: False})
             session.commit()
+            
+    def fetch_signals(self, timestamp: int, pool_address: str):
+        with self.Session() as session:
+            result = session.query(UniswapSignalsTable).filter_by(timestamp = timestamp, pool_address = pool_address).all()
+            signals = [{'price': row.price, 'liquidity': row.liquidity, 'volume': row.volume} for row in result]
+        return signals
+    
     def fetch_pool_events(self, start_block: int, end_block: int):
         swap_events = self.fetch_swap_events(start_block, end_block)
         mint_events = self.fetch_mint_events(start_block, end_block)
