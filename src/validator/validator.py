@@ -35,7 +35,10 @@ from substrateinterface import Keypair  # type: ignore
 
 from ._config import ValidatorSettings
 from utils.log import log
-from utils.protocols import HealthCheckSynapse, PoolEventSynapse, SignalEventSynapse, PredictionSynapse
+from utils.protocols import (HealthCheckSynapse, HealthCheckResponse,
+                             PoolEventSynapse, PoolEventResponse,
+                             SignalEventSynapse, SignalEventResponse,
+                             PredictionSynapse, PredictionSynapse)
 import pool_data_fetcher
 
 from communex._common import ComxSettings  # type: ignore
@@ -252,6 +255,23 @@ class VeloraValidator(Module):
         # Makes a blockchain query for the miner addresses
         module_addreses = client.query_map_address(netuid)
         return module_addreses
+    
+    def retrieve_miner_information(self, velora_netuid):
+        modules_adresses = self.get_addresses(self.client, velora_netuid)
+        modules_keys = self.client.query_map_key(velora_netuid)
+        val_ss58 = self.key.ss58_address
+        if val_ss58 not in modules_keys.values():
+            raise RuntimeError(f"validator key {val_ss58} is not registered in subnet")
+
+        modules_info: dict[int, tuple[list[str], Ss58Address]] = {}
+
+        modules_filtered_address = get_ip_port(modules_adresses)
+        for module_id in modules_keys.keys():
+            module_addr = modules_filtered_address.get(module_id, None)
+            if not module_addr:
+                continue
+            modules_info[module_id] = (module_addr, modules_keys[module_id])
+        return modules_info
 
     def _get_miner_prediction(
         self,
@@ -291,6 +311,31 @@ class VeloraValidator(Module):
             print(e)
             miner_answer = None
         return miner_answer
+    
+    async def get_miner_answer(self, modules_info, synapses):
+        if not isinstance(synapses, list):
+            synapses = [synapses] * len(modules_info)
+        log(f"Selected the following miners: {modules_info.keys()}")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            it = executor.map(lambda x: self._get_miner_prediction(x[0], x[1]), list(zip(synapses, modules_info.values())))
+            answers = [*it]
+            
+        if not answers:
+            log("No miner managed to give an answer")
+            return None
+        
+        return answers
+
+    def get_pool_event_synapse(self, healthy_data: HealthCheckResponse) -> dict:
+        """
+        Generate a prompt for the miner modules.
+
+        Returns:
+            The generated prompt for the miner modules.
+        """
+
+        return {"token_pairs": req_token_pairs, "start_datetime": start_datetime, "end_datetime": end_datetime}
 
     def check_pool_event_accuracy(self, miner_answer: dict | None, ground_truth: dict) -> float:
         """
@@ -314,16 +359,6 @@ class VeloraValidator(Module):
         accuracy_score = ((cnt_correct_entry - cnt_all * 0.75) / cnt_all * 4) ** 3
 
         return accuracy_score
-
-    def get_pool_event_synapse(self, healthy_data) -> dict:
-        """
-        Generate a prompt for the miner modules.
-
-        Returns:
-            The generated prompt for the miner modules.
-        """
-
-        return {"token_pairs": req_token_pairs, "start_datetime": start_datetime, "end_datetime": end_datetime}
         
     def check_miner_answer_pool_event(self, miner_prompt: dict, miner_answer: dict | None) -> bool:
         """
@@ -391,38 +426,6 @@ class VeloraValidator(Module):
         overall_score = {key: ((accuracy_score[key] + process_time_score[key]) / 2) for key in accuracy_score.keys()}
         
         return overall_score
-    
-    async def get_miner_answer(self, modules_info, synapses):
-        if not isinstance(synapses, list):
-            synapses = [synapses] * len(modules_info)
-        log(f"Selected the following miners: {modules_info.keys()}")
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            it = executor.map(lambda x: self._get_miner_prediction(x[0], x[1]), list(zip(synapses, modules_info.values())))
-            answers = [*it]
-            
-        if not answers:
-            log("No miner managed to give an answer")
-            return None
-        
-        return answers
-    
-    def retrieve_miner_information(self, velora_netuid):
-        modules_adresses = self.get_addresses(self.client, velora_netuid)
-        modules_keys = self.client.query_map_key(velora_netuid)
-        val_ss58 = self.key.ss58_address
-        if val_ss58 not in modules_keys.values():
-            raise RuntimeError(f"validator key {val_ss58} is not registered in subnet")
-
-        modules_info: dict[int, tuple[list[str], Ss58Address]] = {}
-
-        modules_filtered_address = get_ip_port(modules_adresses)
-        for module_id in modules_keys.keys():
-            module_addr = modules_filtered_address.get(module_id, None)
-            if not module_addr:
-                continue
-            modules_info[module_id] = (module_addr, modules_keys[module_id])
-        return modules_info
     
     async def validate_step(
         self, velora_netuid: int, settings: ValidatorSettings

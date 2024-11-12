@@ -21,7 +21,13 @@ class SignalEventSynapse:
     synapse_name: str = 'SignalEventSynapse'
     timestamp: float
     pool_address: str
+
+class SignalEventResponse:
+    pass
     
 class PredictionSynapse:
     synapse_name: str = 'PredictionSynapse'
     timestamp: float
+    
+class PredictionSynapse:
+    pass
