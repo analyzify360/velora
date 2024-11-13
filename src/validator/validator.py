@@ -210,6 +210,7 @@ class VeloraValidator(Module):
         self.call_timeout = call_timeout
         
         self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('ETHEREUM_RPC_NODE_URL'))
+        self.wandb_running = False
         if wandb_on:
             self.init_wandb()
         
@@ -580,7 +581,7 @@ class VeloraValidator(Module):
         # Check range
         health_check_synapse = HealthCheckSynapse()
         health_data = self.get_miner_answer(modules_info, health_check_synapse)
-        miner_results_health_data = list(zip(self.modules_info.keys(), health_data))
+        miner_results_health_data = list(zip(modules_info.keys(), health_data))
         
         health_score = self.score_health_check(miner_results_health_data)
 
@@ -588,7 +589,7 @@ class VeloraValidator(Module):
         pool_event_check_synapses = self.get_pool_event_synapses(health_data)
         pool_events = self.get_miner_answer(modules_info, pool_event_check_synapses)
         
-        miner_results_pool_events = list(zip(self.modules_info.keys(), pool_events))
+        miner_results_pool_events = list(zip(modules_info.keys(), pool_events))
 
         pool_events_score = self.score_pool_events(pool_event_check_synapses, miner_results_pool_events)
         
@@ -596,9 +597,14 @@ class VeloraValidator(Module):
         signal_event_synapse = self.get_signal_event_synapse(health_data)
         signal_events = self.get_miner_answer(modules_info, signal_event_synapse)
         
-        miner_results_signal_events = list(zip(self.modules_info.keys(), signal_events))
+        miner_results_signal_events = list(zip(modules_info.keys(), signal_events))
         
         signal_events_score = self.score_signal_events(miner_results_signal_events)
+        
+        # Check prediction
+        # prediction_synapse = PredictionSynapse()
+        
+        score_dict = {key: health_score[key] * 0.3 + pool_events_score[key] * 0.3 + signal_events_score[key] * 0.4 for key in modules_info.keys()}
 
         if not score_dict:
             log("No miner managed to give a valid answer")

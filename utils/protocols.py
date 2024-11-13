@@ -1,28 +1,29 @@
 from datetime import datetime
+from pydantic import BaseModel
 
-class HealthCheckSynapse:
+class HealthCheckSynapse(BaseModel):
     synapse_name: str = 'HealthCheckSynapse'
 
-class HealthCheckResponse:
+class HealthCheckResponse(BaseModel):
     time_completed: int
     pool_addresses: list[str]
     
-class PoolEventSynapse:
+class PoolEventSynapse(BaseModel):
     synapse_name: str = 'PoolEventSynapse'
     pool_address: str
     start_datetime: datetime
     end_datetime: datetime
 
-class PoolEventResponse:
+class PoolEventResponse(BaseModel):
     data: list[dict]
     overall_data_hash: str
 
-class SignalEventSynapse:
+class SignalEventSynapse(BaseModel):
     synapse_name: str = 'SignalEventSynapse'
     timestamp: int
     pool_address: str
 
-class SignalEventResponse:
+class SignalEventResponse(BaseModel):
     """
         List of Signals
         
@@ -35,9 +36,9 @@ class SignalEventResponse:
     """
     data: list[dict]
     
-class PredictionSynapse:
+class PredictionSynapse(BaseModel):
     synapse_name: str = 'PredictionSynapse'
     timestamp: int
     
-class PredictionSynapse:
+class PredictionSynapse(BaseModel):
     pass
