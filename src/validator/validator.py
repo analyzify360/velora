@@ -310,7 +310,7 @@ class VeloraValidator(Module):
             miner_answer = None
         return miner_answer
     
-    async def get_miner_answer(self, modules_info, synapses):
+    def get_miner_answer(self, modules_info, synapses):
         if not isinstance(synapses, list):
             synapses = [synapses] * len(modules_info)
         log(f"Selected the following miners: {modules_info.keys()}")
@@ -334,6 +334,7 @@ class VeloraValidator(Module):
         """
         synapses = []
         for miner_data in healthy_data:
+            if miner_data is None: continue
             days = (miner_data.time_completed - START_TIMESTAMP) / DAY_SECONDS
             random_pick = random.randint(0, days)
             start_date = random_pick * DAY_SECONDS + START_TIMESTAMP
@@ -517,15 +518,19 @@ class VeloraValidator(Module):
         return overall_score
     
     def score_health_check(self, miner_results):
-        timestamps = [miner_answer.time_completed for key, miner_answer in miner_results]
+        valid_miner_results = [(key, miner_answer) for key, miner_answer in miner_results if miner_answer is not None]
+        if len(valid_miner_results) == 0:
+            return {}
+        
+        timestamps = [miner_answer.time_completed for key, miner_answer in valid_miner_results]
         mx_timestamp = max(timestamps)
         today_timestamp = datetime.today().timestamp()
         
-        amount_score = {key: (miner_answer.time_completed / mx_timestamp) for key, miner_answer in miner_results}
+        amount_score = {key: (miner_answer.time_completed / mx_timestamp) for key, miner_answer in valid_miner_results}
         recency_score = {key: max(0, (10 * DAY_SECONDS + miner_answer.time_completed - today_timestamp) / DAY_SECONDS / 10)
-                          for key, miner_answer in miner_results}
+                          for key, miner_answer in valid_miner_results}
         
-        return {key: amount_score[key] * 0.6 + recency_score[key] * 0.4 for key in amount_score.keys()}
+        return {key: amount_score[key] * 0.6 + recency_score[key] * 0.4 for key in amount_score.keys()}, valid_miner_results
     
     def score_signal_events(self, synapses, miner_results):
         """
@@ -583,7 +588,7 @@ class VeloraValidator(Module):
         health_data = self.get_miner_answer(modules_info, health_check_synapse)
         miner_results_health_data = list(zip(modules_info.keys(), health_data))
         
-        health_score = self.score_health_check(miner_results_health_data)
+        health_score, valid_miners_results = self.score_health_check(miner_results_health_data)
 
         # Check pool events data
         pool_event_check_synapses = self.get_pool_event_synapses(health_data)
