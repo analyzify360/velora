@@ -6,8 +6,8 @@ from communex._common import get_node_url  # type: ignore
 from communex.client import CommuneClient  # type: ignore
 from communex.compat.key import classic_load_key  # type: ignore
 
-from src.subnet.validator._config import ValidatorSettings
-from src.subnet.validator.validator import get_subnet_netuid, VeloraValidator
+from src.validator._config import ValidatorSettings
+from src.validator.validator import get_subnet_netuid, VeloraValidator
 
 app = typer.Typer()
 

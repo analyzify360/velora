@@ -1,4 +1,4 @@
-communex 
+git+https://github.com/renlabs-dev/communex.git@runtime/126
 typer
 uvicorn
 keylimiter

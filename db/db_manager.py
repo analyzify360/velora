@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, inspect, insert
+from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, inspect, insert, desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from typing import Union, List, Dict
@@ -87,6 +87,14 @@ class CollectEventTable(Base):
     amount0 = Column(String, nullable=False)  # U256 can be stored as String
     amount1 = Column(String, nullable=False)  # U256 can be stored as String
 
+class UniswapSignalsTable(Base):
+    __tablename__ = 'uniswap_signals'
+    timestamp = Column(Integer, nullable=False, primary_key=True)
+    pool_address = Column(String, nullable=False, primary_key=True)
+    price = Column(String)
+    liquidity = Column(String)
+    volume = Column(String)
+    
 class DBManager:
 
     def __init__(self, url = get_postgres_url()) -> None:
@@ -95,9 +103,6 @@ class DBManager:
 
         # Create a configured "Session" class
         self.Session = sessionmaker(bind=self.engine)
-
-        # Create the table if it doesn't exist
-        Base.metadata.create_all(self.engine)  # This line ensures the table is created if not exists
 
     def __enter__(self):
         self.session = self.Session()
@@ -125,6 +130,12 @@ class DBManager:
         with self.Session() as session:
             not_completed_data = session.query(Timetable).filter_by(completed=False).all()
             return [{"start": row.start, "end": row.end, "completed": row.completed} for row in not_completed_data]
+
+    def fetch_completed_time(self) -> List[Dict[str, Union[Date, bool]]]:
+        """Fetch all not completed time ranges from the timetable."""
+        with self.Session() as session:
+            row = session.query(Timetable).filter_by(completed=True).order_by(desc(Timetable.start)).first()
+            return {"start": row.start, "end": row.end, "completed": row.completed}
     
     def fetch_last_time_range(self) -> Dict[str, Union[Date, bool]]:
         """Fetch the last time range from the timetable."""
@@ -161,7 +172,7 @@ class DBManager:
         """Fetch all token pairs from the corresponding table."""
         with self.Session() as session:
             token_pairs = session.query(Tokenpairstable).all()
-            return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed} for row in token_pairs]
+            return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed, 'pool_address': row.pool} for row in token_pairs]
 
     def fetch_incompleted_token_pairs(self) -> List[Dict[str, Union[str, int, bool]]]:
         """Fetch all incompleted token pairs from the corresponding table."""
@@ -185,54 +196,46 @@ class DBManager:
         with self.Session() as session:
             session.query(Tokenpairstable).update({Tokenpairstable.completed: False})
             session.commit()
-
-    def add_pool_data(self, pool_data: List[Dict]) -> None:
-        """Add pool data to the pool data table and related event tables."""
-        insert_values = [
-            Pooldatatable(block_number=data['block_number'], event_type=data['event']['type'], transaction_hash=data['transaction_hash'])
-            for data in pool_data
-        ]
-
+            
+    def fetch_signals(self, timestamp: int, pool_address: str):
         with self.Session() as session:
-            session.add_all(insert_values)  # Add the pool data to the pool data table
-            session.commit()
-
-        # Add the swap event data to the swap event table
-        swap_event_data = [
-            SwapEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], block_number=data['block_number'], **data['event']['data'])
-            for data in pool_data if data['event']['type'] == 'swap'
-        ]
-        if swap_event_data:
-            with self.Session() as session:
-                session.add_all(swap_event_data)
-                session.commit()
-
-        # Add the mint event data to the mint event table
-        mint_event_data = [
-            MintEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], block_number=data['block_number'], **data['event']['data'])
-            for data in pool_data if data['event']['type'] == 'mint'
-        ]
-        if mint_event_data:
-            with self.Session() as session:
-                session.add_all(mint_event_data)
-                session.commit()
-
-        # Add the burn event data to the burn event table
-        burn_event_data = [
-            BurnEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], block_number=data['block_number'], **data['event']['data'])
-            for data in pool_data if data['event']['type'] == 'burn'
-        ]
-        if burn_event_data:
-            with self.Session() as session:
-                session.add_all(burn_event_data)
-                session.commit()
-
-        # Add the collect event data to the collect event table
-        collect_event_data = [
-            CollectEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], block_number=data['block_number'], **data['event']['data'])
-            for data in pool_data if data['event']['type'] == 'collect'
-        ]
-        if collect_event_data:
-            with self.Session() as session:
-                session.add_all(collect_event_data)
-                session.commit()
+            result = session.query(UniswapSignalsTable).filter_by(timestamp = timestamp, pool_address = pool_address).all()
+            signals = [{'price': row.price, 'liquidity': row.liquidity, 'volume': row.volume} for row in result]
+        return signals
+    
+    def fetch_pool_events(self, start_block: int, end_block: int):
+        swap_events = self.fetch_swap_events(start_block, end_block)
+        mint_events = self.fetch_mint_events(start_block, end_block)
+        burn_events = self.fetch_burn_events(start_block, end_block)
+        collect_events = self.fetch_collect_events(start_block, end_block)
+        
+        return swap_events + mint_events + burn_events + collect_events
+        
+    def fetch_swap_events(self, start_block: int, end_block: int):
+        with self.Session() as session:
+            events = session.query(SwapEventTable).filter(
+                SwapEventTable.block_number >= start_block,
+                SwapEventTable.block_number <= end_block
+            ).all()
+        return events
+    def fetch_mint_events(self, start_block: int, end_block: int):
+        with self.Session() as session:
+            events = session.query(MintEventTable).filter(
+                MintEventTable.block_number >= start_block,
+                MintEventTable.block_number <= end_block
+            ).all()
+        return events
+    def fetch_burn_events(self, start_block: int, end_block: int):
+        with self.Session() as session:
+            events = session.query(BurnEventTable).filter(
+                BurnEventTable.block_number >= start_block,
+                BurnEventTable.block_number <= end_block
+            ).all()
+        return events
+    def fetch_collect_events(self, start_block: int, end_block: int):
+        with self.Session() as session:
+            events = session.query(CollectEventTable).filter(
+                CollectEventTable.block_number >= start_block,
+                CollectEventTable.block_number <= end_block
+            ).all()
+        return events

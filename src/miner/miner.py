@@ -7,6 +7,11 @@ import os
 import json
 import pool_data_fetcher
 
+from utils.protocols import (HealthCheckSynapse, HealthCheckResponse,
+                             PoolEventSynapse, PoolEventResponse,
+                             SignalEventSynapse, SignalEventResponse,
+                             PredictionSynapse, PredictionSynapse)
+from db.db_manager import DBManager
 
 class Miner(Module):
     """
@@ -22,17 +27,35 @@ class Miner(Module):
         super().__init__()
         
         self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('ETHEREUM_RPC_NODE_URL'))
+        self.db_manager = DBManager()
 
     @endpoint
-    def fetch(self, query: dict) -> str:
-        # Generate a response from scraping the rpc server
-        token_pairs = query.get("token_pairs", None)
-        start_datetime = query.get("start_datetime", None)
-        end_datetime = query.get("end_datetime", None)
-        token_pairs_for_pool = [tuple(token_pair) for token_pair in token_pairs]
-        result = self.pool_data_fetcher.fetch_pool_data(token_pairs_for_pool, start_datetime, end_datetime, "1h")
+    def forwardHealthCheckSynapse(self, synapse: HealthCheckSynapse):
+        time_completed = self.db_manager.fetch_completed_time()['completed']
+        token_pairs = self.db_manager.fetch_token_pairs()
+        pool_addresses = [token_pair['pool_address'] for token_pair in token_pairs]
         
-        return json.dumps(result)
+        return HealthCheckResponse(time_completed = time_completed, pool_addresses = pool_addresses)
+        
+    @endpoint
+    def forwardPoolEventSynapse(self, synapse: PoolEventSynapse):
+        # Generate a response from scraping the rpc server
+        block_number_start, block_number_end = self.pool_data_fetcher.get_block_number_range(synapse.start_datetime, synapse.end_datetime)
+        pool_events = self.db_manager.fetch_pool_events(block_number_start, block_number_end)
+        
+        data_hash = hash(pool_events)
+        
+        return PoolEventResponse(data = pool_events, overall_data_hash = data_hash)
+    
+    @endpoint
+    def forwardSignalEventSynapse(self, synapse: SignalEventSynapse):
+        signals = self.db_manager.fetch_signals(synapse.timestamp, synapse.pool_address)
+        
+        return SignalEventResponse(data = signals)
+    
+    @endpoint
+    def forwardPredictionSynapse(self, synapse: PredictionSynapse):
+        pass
 
 
 if __name__ == "__main__":
