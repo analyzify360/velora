@@ -296,7 +296,7 @@ class VeloraValidator(Module):
                 client.call(
                     f'forward{synapse.synapse_name}',
                     miner_key,
-                    {"synapse": synapse},
+                    {"synapse": synapse.dict()},
                     timeout=self.call_timeout,  #  type: ignore
                 )
             )
@@ -473,6 +473,7 @@ class VeloraValidator(Module):
         """
         synapses = []
         for miner_data in healthy_data:
+            if miner_data is None: continue
             days = (miner_data.time_completed - START_TIMESTAMP) / (5 * 60)
             random_pick = random.randint(0, days)
             timestamp = random_pick * 300 + START_TIMESTAMP
@@ -530,7 +531,7 @@ class VeloraValidator(Module):
         recency_score = {key: max(0, (10 * DAY_SECONDS + miner_answer.time_completed - today_timestamp) / DAY_SECONDS / 10)
                           for key, miner_answer in valid_miner_results}
         
-        return {key: amount_score[key] * 0.6 + recency_score[key] * 0.4 for key in amount_score.keys()}, valid_miner_results
+        return {key: amount_score[key] * 0.6 + recency_score[key] * 0.4 for key in amount_score.keys()}
     
     def score_signal_events(self, synapses, miner_results):
         """
@@ -588,21 +589,27 @@ class VeloraValidator(Module):
         health_data = self.get_miner_answer(modules_info, health_check_synapse)
         miner_results_health_data = list(zip(modules_info.keys(), health_data))
         
-        health_score, valid_miners_results = self.score_health_check(miner_results_health_data)
+        health_score = self.score_health_check(miner_results_health_data)
+        valid_miner_infos = [modules_info[key] for key in health_score]
+        log(f'valid_miner_infos: {valid_miner_infos}')
+        
+        if len(valid_miner_infos) == 0:
+            log('No valid miners')
+            return
 
         # Check pool events data
         pool_event_check_synapses = self.get_pool_event_synapses(health_data)
-        pool_events = self.get_miner_answer(modules_info, pool_event_check_synapses)
+        pool_events = self.get_miner_answer(valid_miner_infos, pool_event_check_synapses)
         
-        miner_results_pool_events = list(zip(modules_info.keys(), pool_events))
+        miner_results_pool_events = list(zip(valid_miner_infos.keys(), pool_events))
 
         pool_events_score = self.score_pool_events(pool_event_check_synapses, miner_results_pool_events)
         
         # Check signals
         signal_event_synapse = self.get_signal_event_synapse(health_data)
-        signal_events = self.get_miner_answer(modules_info, signal_event_synapse)
+        signal_events = self.get_miner_answer(valid_miner_infos, signal_event_synapse)
         
-        miner_results_signal_events = list(zip(modules_info.keys(), signal_events))
+        miner_results_signal_events = list(zip(valid_miner_infos.keys(), signal_events))
         
         signal_events_score = self.score_signal_events(miner_results_signal_events)
         

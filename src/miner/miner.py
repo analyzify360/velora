@@ -31,9 +31,9 @@ class Miner(Module):
 
     @endpoint
     def forwardHealthCheckSynapse(self, synapse: HealthCheckSynapse):
-        time_completed = self.db_manager.fetch_completed_time()
+        time_completed = self.db_manager.fetch_completed_time()['completed']
         token_pairs = self.db_manager.fetch_token_pairs()
-        pool_addresses = [token_pair['pool'] for token_pair in token_pairs]
+        pool_addresses = [token_pair['pool_address'] for token_pair in token_pairs]
         
         return HealthCheckResponse(time_completed = time_completed, pool_addresses = pool_addresses)
         
