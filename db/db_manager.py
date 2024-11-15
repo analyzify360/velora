@@ -104,9 +104,6 @@ class DBManager:
         # Create a configured "Session" class
         self.Session = sessionmaker(bind=self.engine)
 
-        # Create the table if it doesn't exist
-        Base.metadata.create_all(self.engine)  # This line ensures the table is created if not exists
-
     def __enter__(self):
         self.session = self.Session()
         return self
@@ -242,54 +239,3 @@ class DBManager:
                 CollectEventTable.block_number <= end_block
             ).all()
         return events
-
-    def add_pool_data(self, pool_data: List[Dict]) -> None:
-        """Add pool data to the pool data table and related event tables."""
-        insert_values = [
-            Pooldatatable(block_number=data['block_number'], event_type=data['event']['type'], transaction_hash=data['transaction_hash'])
-            for data in pool_data
-        ]
-
-        with self.Session() as session:
-            session.add_all(insert_values)  # Add the pool data to the pool data table
-            session.commit()
-
-        # Add the swap event data to the swap event table
-        swap_event_data = [
-            SwapEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], block_number=data['block_number'], **data['event']['data'])
-            for data in pool_data if data['event']['type'] == 'swap'
-        ]
-        if swap_event_data:
-            with self.Session() as session:
-                session.add_all(swap_event_data)
-                session.commit()
-
-        # Add the mint event data to the mint event table
-        mint_event_data = [
-            MintEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], block_number=data['block_number'], **data['event']['data'])
-            for data in pool_data if data['event']['type'] == 'mint'
-        ]
-        if mint_event_data:
-            with self.Session() as session:
-                session.add_all(mint_event_data)
-                session.commit()
-
-        # Add the burn event data to the burn event table
-        burn_event_data = [
-            BurnEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], block_number=data['block_number'], **data['event']['data'])
-            for data in pool_data if data['event']['type'] == 'burn'
-        ]
-        if burn_event_data:
-            with self.Session() as session:
-                session.add_all(burn_event_data)
-                session.commit()
-
-        # Add the collect event data to the collect event table
-        collect_event_data = [
-            CollectEventTable(transaction_hash=data['transaction_hash'], pool_address = data['pool_address'], block_number=data['block_number'], **data['event']['data'])
-            for data in pool_data if data['event']['type'] == 'collect'
-        ]
-        if collect_event_data:
-            with self.Session() as session:
-                session.add_all(collect_event_data)
-                session.commit()
