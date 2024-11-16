@@ -6,5 +6,5 @@ pydantic-settings
 rustimport
 sqlalchemy
 psycopg2-binary
-pool-data-fetcher
+uniswap-fetcher-rs
 wandb

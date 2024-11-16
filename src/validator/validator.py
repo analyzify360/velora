@@ -40,7 +40,7 @@ from utils.protocols import (HealthCheckSynapse, HealthCheckResponse,
                              SignalEventSynapse, SignalEventResponse,
                              PredictionSynapse, PredictionResponse,
                              class_dict)
-import pool_data_fetcher
+from uniswap_fetcher_rs import UniswapFetcher
 
 from communex._common import ComxSettings  # type: ignore
 
@@ -210,7 +210,7 @@ class VeloraValidator(Module):
         self.val_model = "foo"
         self.call_timeout = call_timeout
         
-        self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('ETHEREUM_RPC_NODE_URL'))
+        self.uniswap_fetcher_rs = UniswapFetcher(os.getenv('ETHEREUM_RPC_NODE_URL'))
         self.wandb_running = False
         if wandb_on:
             self.init_wandb()
@@ -366,7 +366,7 @@ class VeloraValidator(Module):
         start_datetime = miner_prompt.start_datetime
         end_datetime = miner_prompt.end_datetime
         
-        block_number_start, block_number_end = self.pool_data_fetcher.get_block_number_range(start_datetime, end_datetime)
+        block_number_start, block_number_end = self.uniswap_fetcher_rs.get_block_number_range(start_datetime, end_datetime)
         
         miner_data = miner_answer.data
         if miner_data is None:
@@ -383,7 +383,7 @@ class VeloraValidator(Module):
                 return False
             
             okay = 0
-            block_data_from_pools = self.pool_data_fetcher.get_pool_events_by_pool_address(pool_address, block_number, block_number)
+            block_data_from_pools = self.uniswap_fetcher_rs.get_pool_events_by_pool_address(pool_address, block_number, block_number)
             for block_data_of_pool in block_data_from_pools.get("data", []):
                 if block_data_of_pool.get("transaction_hash") == block_data.get("transaction_hash"):
                     okay = 1
@@ -401,7 +401,7 @@ class VeloraValidator(Module):
         pool_address = miner_prompt.pool_address
         timestamp = miner_prompt.timestamp
         
-        # block_number_start, block_number_end = self.pool_data_fetcher.get_block_number_range(start_datetime, end_datetime)
+        # block_number_start, block_number_end = self.uniswap_fetcher_rs.get_block_number_range(start_datetime, end_datetime)
         
         miner_data = miner_answer.data
         if miner_data is None:
@@ -418,7 +418,7 @@ class VeloraValidator(Module):
             #     return False
             
             okay = 0
-            # block_data_from_pools = self.pool_data_fetcher.get_pool_events_by_pool_address(pool_address, block_number, block_number)
+            # block_data_from_pools = self.uniswap_fetcher_rs.get_pool_events_by_pool_address(pool_address, block_number, block_number)
             # for block_data_of_pool in block_data_from_pools.get("data", []):
             #     if block_data_of_pool.get("transaction_hash") == block_data.get("transaction_hash"):
             #         okay = 1
@@ -519,6 +519,9 @@ class VeloraValidator(Module):
             process_time_score[key] = miner_answer["process_time"].total_seconds()
             
         print(f'process_time_score: {process_time_score}')
+        if(len(process_time_score) == 0):
+            return {}
+        
         max_time = max(process_time_score.values())
         min_time = min(process_time_score.values())
         process_time_score = {key: 1 - 0.5 * (process_time - min_time) / (max_time - min_time + EPS) for key, process_time in process_time_score.items()}
@@ -568,6 +571,9 @@ class VeloraValidator(Module):
             process_time_score[key] = miner_answer["process_time"].total_seconds()
             
         print(f'process_time_score: {process_time_score}')
+        if len(process_time_score) == 0:
+            return {}
+        
         max_time = max(process_time_score.values())
         min_time = min(process_time_score.values())
         process_time_score = {key: 1 - 0.5 * (process_time - min_time) / (max_time - min_time + EPS) for key, process_time in process_time_score.items()}
@@ -614,12 +620,12 @@ class VeloraValidator(Module):
         pool_events_score = self.score_pool_events(pool_event_check_synapses, miner_results_pool_events)
         
         # Check signals
-        signal_event_synapse = self.get_signal_event_synapse(health_data)
-        signal_events = self.get_miner_answer(valid_miner_infos, signal_event_synapse)
+        signal_event_synapses = self.get_signal_event_synapse(health_data)
+        signal_events = self.get_miner_answer(valid_miner_infos, signal_event_synapses)
         
         miner_results_signal_events = list(zip(valid_miner_infos.keys(), signal_events))
         
-        signal_events_score = self.score_signal_events(miner_results_signal_events)
+        signal_events_score = self.score_signal_events(signal_event_synapses, miner_results_signal_events)
         
         # Check prediction
         # prediction_synapse = PredictionSynapse()

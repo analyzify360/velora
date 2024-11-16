@@ -5,7 +5,7 @@ from keylimiter import TokenBucketLimiter
 
 import os
 import json
-import pool_data_fetcher
+from uniswap_fetcher_rs import UniswapFetcher
 
 from utils.protocols import (HealthCheckSynapse, HealthCheckResponse,
                              PoolEventSynapse, PoolEventResponse,
@@ -26,7 +26,7 @@ class Miner(Module):
     def __init__(self) -> None:
         super().__init__()
         
-        self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('ETHEREUM_RPC_NODE_URL'))
+        self.uniswap_fetcher_rs = UniswapFetcher(os.getenv('ETHEREUM_RPC_NODE_URL'))
         self.db_manager = DBManager()
 
     @endpoint
@@ -42,7 +42,7 @@ class Miner(Module):
     def forwardPoolEventSynapse(self, synapse: dict):
         synapse = PoolEventSynapse(**synapse)
         # Generate a response from scraping the rpc server
-        block_number_start, block_number_end = self.pool_data_fetcher.get_block_number_range(synapse.start_datetime, synapse.end_datetime)
+        block_number_start, block_number_end = self.uniswap_fetcher_rs.get_block_number_range(synapse.start_datetime, synapse.end_datetime)
         pool_events = self.db_manager.fetch_pool_events(block_number_start, block_number_end)
         
         data_hash = hash(pool_events)
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     # start_datetime = "2024-09-27 11:24:56"
     # end_datetime = "2024-09-27 15:25:56"
     # interval = "1h"
-    # print(pool_data_fetcher.fetch_pool_data_py(token0, token1, start_datetime, end_datetime, interval))
+    # print(uniswap_fetcher_rs.fetch_pool_data_py(token0, token1, start_datetime, end_datetime, interval))
 
     # Only allow local connections
     uvicorn.run(app, host="0.0.0.0", port=9962)
