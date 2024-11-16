@@ -5,6 +5,7 @@ class HealthCheckSynapse(BaseModel):
     synapse_name: str = 'HealthCheckSynapse'
 
 class HealthCheckResponse(BaseModel):
+    class_name: str = 'HealthCheckResponse'
     time_completed: int
     pool_addresses: list[str]
     
@@ -15,6 +16,7 @@ class PoolEventSynapse(BaseModel):
     end_datetime: datetime
 
 class PoolEventResponse(BaseModel):
+    class_name: str = 'PoolEventResponse'
     data: list[dict]
     overall_data_hash: str
 
@@ -34,11 +36,23 @@ class SignalEventResponse(BaseModel):
                 'volume': 11579
             }
     """
+    class_name: str = 'SignalEventResponse'
     data: list[dict]
     
 class PredictionSynapse(BaseModel):
     synapse_name: str = 'PredictionSynapse'
     timestamp: int
     
-class PredictionSynapse(BaseModel):
-    pass
+class PredictionResponse(BaseModel):
+    class_name: str = 'PredictionResponse'
+
+class_dict = {
+    'HealthCheckSynapse': HealthCheckSynapse,
+    'HealthCheckResponse': HealthCheckResponse,
+    'PoolEventSynapse': PoolEventSynapse,
+    'PoolEventResponse': PoolEventResponse,
+    'SignalEventSynapse': SignalEventSynapse,
+    'SignalEventResponse': SignalEventResponse,
+    'PredictionSynapse': PredictionSynapse,
+    'PredictionResponse': PredictionResponse,
+}

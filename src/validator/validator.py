@@ -38,7 +38,8 @@ from utils.log import log
 from utils.protocols import (HealthCheckSynapse, HealthCheckResponse,
                              PoolEventSynapse, PoolEventResponse,
                              SignalEventSynapse, SignalEventResponse,
-                             PredictionSynapse, PredictionSynapse)
+                             PredictionSynapse, PredictionResponse,
+                             class_dict)
 import pool_data_fetcher
 
 from communex._common import ComxSettings  # type: ignore
@@ -292,7 +293,8 @@ class VeloraValidator(Module):
         try:
             # handles the communication with the miner
             current_time = datetime.now()
-            miner_answer = asyncio.run(
+            miner_answer = dict()
+            response = asyncio.run(
                 client.call(
                     f'forward{synapse.synapse_name}',
                     miner_key,
@@ -300,7 +302,9 @@ class VeloraValidator(Module):
                     timeout=self.call_timeout,  #  type: ignore
                 )
             )
-            miner_answer = json.loads(miner_answer)
+            response = json.loads(response)
+            # print(f'Response from miner: {response}')
+            miner_answer['data'] = class_dict[response['class_name']](**response)
             process_time = datetime.now() - current_time
             miner_answer["process_time"] = process_time
 
@@ -323,6 +327,8 @@ class VeloraValidator(Module):
             log("No miner managed to give an answer")
             return None
         
+        # print(f'miner answers: {answers}')
+        
         return answers
         
     def get_pool_event_synapses(self, healthy_data: list[HealthCheckResponse]) -> list[PoolEventSynapse]:
@@ -334,8 +340,9 @@ class VeloraValidator(Module):
         """
         synapses = []
         for miner_data in healthy_data:
-            if miner_data is None: continue
-            days = (miner_data.time_completed - START_TIMESTAMP) / DAY_SECONDS
+            if miner_data is None or miner_data['data'] is None: continue
+            miner_data = miner_data['data']
+            days = (miner_data.time_completed - START_TIMESTAMP) // DAY_SECONDS
             random_pick = random.randint(0, days)
             start_date = random_pick * DAY_SECONDS + START_TIMESTAMP
             end_date = start_date + DAY_SECONDS
@@ -473,7 +480,8 @@ class VeloraValidator(Module):
         """
         synapses = []
         for miner_data in healthy_data:
-            if miner_data is None: continue
+            if miner_data is None or miner_data['data'] is None: continue
+            miner_data = miner_data['data']
             days = (miner_data.time_completed - START_TIMESTAMP) / (5 * 60)
             random_pick = random.randint(0, days)
             timestamp = random_pick * 300 + START_TIMESTAMP
@@ -523,12 +531,12 @@ class VeloraValidator(Module):
         if len(valid_miner_results) == 0:
             return {}
         
-        timestamps = [miner_answer.time_completed for key, miner_answer in valid_miner_results]
+        timestamps = [miner_answer['data'].time_completed for key, miner_answer in valid_miner_results]
         mx_timestamp = max(timestamps)
         today_timestamp = datetime.today().timestamp()
         
-        amount_score = {key: (miner_answer.time_completed / mx_timestamp) for key, miner_answer in valid_miner_results}
-        recency_score = {key: max(0, (10 * DAY_SECONDS + miner_answer.time_completed - today_timestamp) / DAY_SECONDS / 10)
+        amount_score = {key: (miner_answer['data'].time_completed / mx_timestamp) for key, miner_answer in valid_miner_results}
+        recency_score = {key: max(0, (10 * DAY_SECONDS + miner_answer['data'].time_completed - today_timestamp) / DAY_SECONDS / 10)
                           for key, miner_answer in valid_miner_results}
         
         return {key: amount_score[key] * 0.6 + recency_score[key] * 0.4 for key in amount_score.keys()}
@@ -588,9 +596,10 @@ class VeloraValidator(Module):
         health_check_synapse = HealthCheckSynapse()
         health_data = self.get_miner_answer(modules_info, health_check_synapse)
         miner_results_health_data = list(zip(modules_info.keys(), health_data))
+        print(f"miner_results_health_data: {miner_results_health_data}")
         
         health_score = self.score_health_check(miner_results_health_data)
-        valid_miner_infos = [modules_info[key] for key in health_score]
+        valid_miner_infos = {key: modules_info[key] for key in health_score}
         log(f'valid_miner_infos: {valid_miner_infos}')
         
         if len(valid_miner_infos) == 0:
