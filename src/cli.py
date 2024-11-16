@@ -18,7 +18,7 @@ def serve(
         str, typer.Argument(help="Name of the key present in `~/.commune/key`")
     ],
     netuid: int = typer.Option(30, help="Netuid of the subnet"),
-    network: str = typer.Option("testnet", help="Network to connect to"),
+    use_testnet: bool = typer.Option(False, help="Network to connect to"),
     call_timeout: int = 65,
     wandb_on: bool = False
 ):
@@ -26,7 +26,7 @@ def serve(
     keypair = classic_load_key(commune_key, password=password)  # type: ignore
     settings = ValidatorSettings()  # type: ignore
 
-    c_client = CommuneClient(get_node_url(use_testnet = network == "testnet"))  # type: ignore
+    c_client = CommuneClient(get_node_url(use_testnet = use_testnet))  # type: ignore
     validator = VeloraValidator(
         keypair,
         netuid,

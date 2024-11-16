@@ -94,7 +94,7 @@ class UniswapSignalsTable(Base):
     price = Column(String)
     liquidity = Column(String)
     volume = Column(String)
-    
+
 class DBManager:
 
     def __init__(self, url = get_postgres_url()) -> None:
