@@ -296,7 +296,7 @@ class VeloraValidator(Module):
             miner_answer = dict()
             response = asyncio.run(
                 client.call(
-                    f'forward{synapse.synapse_name}',
+                    f'forward{synapse.class_name}',
                     miner_key,
                     {"synapse": synapse.dict()},
                     timeout=self.call_timeout,  #  type: ignore
@@ -596,7 +596,6 @@ class VeloraValidator(Module):
         health_check_synapse = HealthCheckSynapse()
         health_data = self.get_miner_answer(modules_info, health_check_synapse)
         miner_results_health_data = list(zip(modules_info.keys(), health_data))
-        print(f"miner_results_health_data: {miner_results_health_data}")
         
         health_score = self.score_health_check(miner_results_health_data)
         valid_miner_infos = {key: modules_info[key] for key in health_score}

@@ -30,7 +30,7 @@ class Miner(Module):
         self.db_manager = DBManager()
 
     @endpoint
-    def forwardHealthCheckSynapse(self, synapse: HealthCheckSynapse):
+    def forwardHealthCheckSynapse(self, synapse: dict):
         time_completed = self.db_manager.fetch_completed_time()['end']
         token_pairs = self.db_manager.fetch_token_pairs()
         pool_addresses = [token_pair['pool_address'] for token_pair in token_pairs]
@@ -39,20 +39,22 @@ class Miner(Module):
         return HealthCheckResponse(time_completed = time_completed, pool_addresses = pool_addresses).json()
         
     @endpoint
-    def forwardPoolEventSynapse(self, synapse: PoolEventSynapse):
+    def forwardPoolEventSynapse(self, synapse: dict):
+        synapse = PoolEventSynapse(**synapse)
         # Generate a response from scraping the rpc server
         block_number_start, block_number_end = self.pool_data_fetcher.get_block_number_range(synapse.start_datetime, synapse.end_datetime)
         pool_events = self.db_manager.fetch_pool_events(block_number_start, block_number_end)
         
         data_hash = hash(pool_events)
         
-        return PoolEventResponse(data = pool_events, overall_data_hash = data_hash)
+        return PoolEventResponse(data = pool_events, overall_data_hash = data_hash).json()
     
     @endpoint
-    def forwardSignalEventSynapse(self, synapse: SignalEventSynapse):
+    def forwardSignalEventSynapse(self, synapse: dict):
+        synapse = SignalEventSynapse(**synapse)
         signals = self.db_manager.fetch_signals(synapse.timestamp, synapse.pool_address)
         
-        return SignalEventResponse(data = signals)
+        return SignalEventResponse(data = signals).json()
     
     @endpoint
     def forwardPredictionSynapse(self, synapse: PredictionSynapse):
