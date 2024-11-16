@@ -383,7 +383,7 @@ class VeloraValidator(Module):
                 return False
             
             okay = 0
-            block_data_from_pools = self.uniswap_fetcher_rs.get_pool_events_by_pool_address(pool_address, block_number, block_number)
+            block_data_from_pools = self.uniswap_fetcher_rs.get_pool_events_by_pool_addresses([pool_address], block_number, block_number)
             for block_data_of_pool in block_data_from_pools.get("data", []):
                 if block_data_of_pool.get("transaction_hash") == block_data.get("transaction_hash"):
                     okay = 1
@@ -500,23 +500,20 @@ class VeloraValidator(Module):
             synapses: synapses for each miner
             miner_results: The results of the miner modules.
         """
+        process_time_score = {}
         accuracy_score: dict[int, float] = {}
+        
         for synapse, (key, miner_answer) in zip(synapses, miner_results):
             if not miner_answer:
                 log(f"Skipping miner {key} that didn't answer")
                 continue
+            process_time_score[key] = miner_answer["process_time"].total_seconds()
 
-            score = self.check_pool_event_accuracy(synapse, miner_answer)
+            score = self.check_pool_event_accuracy(synapse, miner_answer['data'])
             time.sleep(0.5)
             # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
             assert score <= 1
             accuracy_score[key] = score
-        
-        process_time_score = {}
-        for key, miner_answer in miner_results:
-            if not miner_answer:
-                continue
-            process_time_score[key] = miner_answer["process_time"].total_seconds()
             
         print(f'process_time_score: {process_time_score}')
         if(len(process_time_score) == 0):
@@ -552,23 +549,20 @@ class VeloraValidator(Module):
             synapses: synapses for each miner
             miner_results: The results of the miner modules.
         """
+        process_time_score = {}
         accuracy_score: dict[int, float] = {}
+        
         for synapse, (key, miner_answer) in zip(synapses, miner_results):
             if not miner_answer:
                 log(f"Skipping miner {key} that didn't answer")
                 continue
+            process_time_score[key] = miner_answer["process_time"].total_seconds()
 
-            score = self.check_signal_event_accuracy(synapse, miner_answer)
+            score = self.check_signal_event_accuracy(synapse, miner_answer['data'])
             time.sleep(0.5)
             # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
             assert score <= 1
             accuracy_score[key] = score
-        
-        process_time_score = {}
-        for key, miner_answer in miner_results:
-            if not miner_answer:
-                continue
-            process_time_score[key] = miner_answer["process_time"].total_seconds()
             
         print(f'process_time_score: {process_time_score}')
         if len(process_time_score) == 0:

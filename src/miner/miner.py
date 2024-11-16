@@ -5,6 +5,7 @@ from keylimiter import TokenBucketLimiter
 
 import os
 import json
+import hashlib
 from uniswap_fetcher_rs import UniswapFetcher
 
 from utils.protocols import (HealthCheckSynapse, HealthCheckResponse,
@@ -44,10 +45,13 @@ class Miner(Module):
         # Generate a response from scraping the rpc server
         block_number_start, block_number_end = self.uniswap_fetcher_rs.get_block_number_range(synapse.start_datetime, synapse.end_datetime)
         pool_events = self.db_manager.fetch_pool_events(block_number_start, block_number_end)
+        pool_events_dict = [pool_event.to_dict() for pool_event in pool_events]
         
-        data_hash = hash(pool_events)
+        pool_evnets_string = json.dumps(pool_events_dict)
+        hash_object = hashlib.sha256(pool_evnets_string.encode())  # Convert string to bytes
+        hash_hex = hash_object.hexdigest()  # Get the hash as a hexadecimal string
         
-        return PoolEventResponse(data = pool_events, overall_data_hash = data_hash).json()
+        return PoolEventResponse(data = pool_events_dict, overall_data_hash = hash_hex).json()
     
     @endpoint
     def forwardSignalEventSynapse(self, synapse: dict):

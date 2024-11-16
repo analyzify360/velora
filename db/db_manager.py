@@ -8,15 +8,20 @@ from datetime import datetime
 
 # Define the base class for your table models
 Base = declarative_base()
+class BaseTable(Base):
+    __abstract__ = True
+    
+    def to_dict(self):
+        return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
 # Define the timetable table
-class Timetable(Base):
+class Timetable(BaseTable):
     __tablename__ = 'timetable'
     start = Column(Date, primary_key=True)  # Assuming 'start' is a unique field, hence primary key
     end = Column(Date)
     completed = Column(Boolean)
 
-class Tokenpairstable(Base):
+class Tokenpairstable(BaseTable):
     __tablename__ = 'token_pairs'
     id = Column(Integer, primary_key=True, autoincrement=True)
     token0 = Column(String, nullable=False)
@@ -26,14 +31,14 @@ class Tokenpairstable(Base):
     block_number = Column(String, nullable=False)
     completed = Column(Boolean, nullable=False)
 
-class Pooldatatable(Base):
+class Pooldatatable(BaseTable):
     __tablename__ = 'pool_data'
     id = Column(Integer, primary_key=True, autoincrement=True)
     block_number = Column(String, nullable=False)
     event_type = Column(String, nullable=False)
     transaction_hash = Column(String, nullable=False)
 
-class SwapEventTable(Base):
+class SwapEventTable(BaseTable):
     __tablename__ = 'swap_event'
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
@@ -47,7 +52,7 @@ class SwapEventTable(Base):
     liquidity = Column(String, nullable=False)  # U256 can be stored as String
     tick = Column(Integer, nullable=False)  # i32 can be stored as Integer
 
-class MintEventTable(Base):
+class MintEventTable(BaseTable):
     __tablename__ = 'mint_event'
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
@@ -61,7 +66,7 @@ class MintEventTable(Base):
     amount0 = Column(String, nullable=False)  # U256 can be stored as String
     amount1 = Column(String, nullable=False)  # U256 can be stored as String
 
-class BurnEventTable(Base):
+class BurnEventTable(BaseTable):
     __tablename__ = 'burn_event'
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
@@ -74,7 +79,7 @@ class BurnEventTable(Base):
     amount0 = Column(String, nullable=False)  # U256 can be stored as String
     amount1 = Column(String, nullable=False)  # U256 can be stored as String
 
-class CollectEventTable(Base):
+class CollectEventTable(BaseTable):
     __tablename__ = 'collect_event'
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
@@ -87,7 +92,7 @@ class CollectEventTable(Base):
     amount0 = Column(String, nullable=False)  # U256 can be stored as String
     amount1 = Column(String, nullable=False)  # U256 can be stored as String
 
-class UniswapSignalsTable(Base):
+class UniswapSignalsTable(BaseTable):
     __tablename__ = 'uniswap_signals'
     timestamp = Column(Integer, nullable=False, primary_key=True)
     pool_address = Column(String, nullable=False, primary_key=True)
