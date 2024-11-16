@@ -546,12 +546,12 @@ class VeloraValidator(Module):
             return min_deviations, max_deviations
 
         def get_deviation_scores(deviations, min_deviations, max_deviations):
-            return [key: {
+            return {key: {
                 'price': 1 - (deviation['price'] - min_deviations['price']) / (max_deviations['price'] - min_deviations['price'] + EPS),
                 'liquidity': 1 - (deviation['liquidity'] - min_deviations['liquidity']) / (max_deviations['liquidity'] - min_deviations['liquidity'] + EPS),
                 'volume': 1 - (deviation['volume'] - min_deviations['volume']) / (max_deviations['volume'] - min_deviations['volume'] + EPS),
             }
-            for key, deviation in deviations]
+            for key, deviation in deviations}
         
         def get_deviation_score(scores):
             return [{key: (score['price'] + score['liquidity'] + score['volume']) / 3} for key, score in scores]
