@@ -202,11 +202,11 @@ class DBManager:
             session.query(Tokenpairstable).update({Tokenpairstable.completed: False})
             session.commit()
             
-    def fetch_signals(self, timestamp: int, pool_address: str):
+    def find_signal(self, timestamp: int, pool_address: str):
         with self.Session() as session:
-            result = session.query(UniswapSignalsTable).filter_by(timestamp = timestamp, pool_address = pool_address).all()
-            signals = [{'price': row.price, 'liquidity': row.liquidity, 'volume': row.volume} for row in result]
-        return signals
+            result = session.query(UniswapSignalsTable).filter_by(timestamp = timestamp, pool_address = pool_address).one()
+            signal = {'price': result.price, 'liquidity': result.liquidity, 'volume': result.volume}
+        return signal
     
     def fetch_pool_events(self, start_block: int, end_block: int):
         swap_events = self.fetch_swap_events(start_block, end_block)

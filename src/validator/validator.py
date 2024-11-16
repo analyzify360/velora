@@ -390,7 +390,7 @@ class VeloraValidator(Module):
             correct_count += okay
         return correct_count / ANSWER_CHECK_COUNT
 
-    def check_miner_answer_signal_event(self, miner_prompt: SignalEventSynapse, miner_answer: SignalEventResponse):
+    def get_deviations(self, miner_prompt: SignalEventSynapse, miner_answer: SignalEventResponse):
         """
         Check if the miner answers are valid.
         
@@ -401,29 +401,16 @@ class VeloraValidator(Module):
         pool_address = miner_prompt.pool_address
         timestamp = miner_prompt.timestamp
         
-        # block_number_start, block_number_end = self.uniswap_fetcher_rs.get_block_number_range(start_datetime, end_datetime)
-        
         miner_data = miner_answer.data
         if miner_data is None:
             return False
-        ANSWER_CHECK_COUNT = 10
-        correct_count = 0
-        for _ in range(ANSWER_CHECK_COUNT):
-            block_data = random.choice(miner_data)
-            # block_number = block_data.get("block_number", None)
-            
-            # if block_number is None:
-            #     return False
-            # if block_number < block_number_start or block_number > block_number_end:
-            #     return False
-            
-            okay = 0
-            # block_data_from_pools = self.uniswap_fetcher_rs.get_pool_events_by_pool_address(pool_address, block_number, block_number)
-            # for block_data_of_pool in block_data_from_pools.get("data", []):
-            #     if block_data_of_pool.get("transaction_hash") == block_data.get("transaction_hash"):
-            #         okay = 1
-            correct_count += okay
-        return correct_count / ANSWER_CHECK_COUNT
+        ground_truth = self.uniswap_fetcher_rs.get_signals_by_pool_address(pool_address, timestamp, '5m')
+        
+        return {
+            'price': abs(ground_truth['price'] - miner_data.price),
+            'liquidity': abs(ground_truth['liquidity'] - miner_data.liquidity),
+            'volume': abs(ground_truth['volume'] - miner_data.volume),
+        }
 
     def check_pool_event_accuracy(self, synapse: PoolEventSynapse, miner_answer: PoolEventResponse) -> float:
         """
@@ -443,29 +430,6 @@ class VeloraValidator(Module):
         # count the number of correct entries
 
         accuracy_score = self.check_miner_answer_pool_event(synapse, miner_answer)
-        
-        accuracy_score = ((accuracy_score - 0.75) * 4) ** 3
-
-        return accuracy_score
-
-    def check_signal_event_accuracy(self, synapse: SignalEventSynapse, miner_answer: SignalEventResponse):
-        """
-        Score the generated answer against the validator's own answer.
-
-        Args:
-            miner_answer: The generated answer from the miner module.
-
-        Returns:
-            The score assigned to the miner's answer.
-        """
-
-        # Implement your custom scoring logic here
-        if not miner_answer:
-            return 0
-        
-        # count the number of correct entries
-
-        accuracy_score = self.check_miner_answer_signal_event(synapse, miner_answer)
         
         accuracy_score = ((accuracy_score - 0.75) * 4) ** 3
 
@@ -550,7 +514,7 @@ class VeloraValidator(Module):
             miner_results: The results of the miner modules.
         """
         process_time_score = {}
-        accuracy_score: dict[int, float] = {}
+        deviations: dict[int, float] = {}
         
         for synapse, (key, miner_answer) in zip(synapses, miner_results):
             if not miner_answer:
@@ -558,11 +522,7 @@ class VeloraValidator(Module):
                 continue
             process_time_score[key] = miner_answer["process_time"].total_seconds()
 
-            score = self.check_signal_event_accuracy(synapse, miner_answer['data'])
-            time.sleep(0.5)
-            # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
-            assert score <= 1
-            accuracy_score[key] = score
+            deviations[key] = self.get_deviations(synapse, miner_answer['data'])
             
         print(f'process_time_score: {process_time_score}')
         if len(process_time_score) == 0:
@@ -571,7 +531,36 @@ class VeloraValidator(Module):
         max_time = max(process_time_score.values())
         min_time = min(process_time_score.values())
         process_time_score = {key: 1 - 0.5 * (process_time - min_time) / (max_time - min_time + EPS) for key, process_time in process_time_score.items()}
-        overall_score = {key: ((accuracy_score[key] + process_time_score[key]) / 2) for key in accuracy_score.keys()}
+        
+        def get_min_max_deviations(deviations: dict):
+            min_deviations = {
+                'price': min([deviation['price'] for key, deviation in deviations]),
+                'liquidity': min([deviation['liquidity'] for key, deviation in deviations]),
+                'volume': min([deviation['volume'] for key, deviation in deviations]),
+            }
+            max_deviations = {
+                'price': max([deviation['price'] for deviation in deviations]),
+                'liquidity': max([deviation['liquidity'] for deviation in deviations]),
+                'volume': max([deviation['volume'] for deviation in deviations]),
+            }
+            return min_deviations, max_deviations
+
+        def get_deviation_scores(deviations, min_deviations, max_deviations):
+            return [key: {
+                'price': 1 - (deviation['price'] - min_deviations['price']) / (max_deviations['price'] - min_deviations['price'] + EPS),
+                'liquidity': 1 - (deviation['liquidity'] - min_deviations['liquidity']) / (max_deviations['liquidity'] - min_deviations['liquidity'] + EPS),
+                'volume': 1 - (deviation['volume'] - min_deviations['volume']) / (max_deviations['volume'] - min_deviations['volume'] + EPS),
+            }
+            for key, deviation in deviations]
+        
+        def get_deviation_score(scores):
+            return [{key: (score['price'] + score['liquidity'] + score['volume']) / 3} for key, score in scores]
+        
+        min_deviations, max_deviations = get_min_max_deviations(deviations)
+        deviation_scores = get_deviation_scores(deviations, min_deviations, max_deviations)
+        deviation_score = get_deviation_score(deviation_scores)
+        
+        overall_score = {key: ((deviation_score[key] + process_time_score[key]) / 2) for key in accuracy_score.keys()}
         
         return overall_score
     

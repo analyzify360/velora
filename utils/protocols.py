@@ -26,18 +26,10 @@ class SignalEventSynapse(BaseModel):
     pool_address: str
 
 class SignalEventResponse(BaseModel):
-    """
-        List of Signals
-        
-        Signal format:
-            {
-                'price': 0.24,
-                'liquidity': 1.89,
-                'volume': 11579
-            }
-    """
     class_name: str = 'SignalEventResponse'
-    data: list[dict]
+    price: float
+    liquidity: float
+    volume: float
     
 class PredictionSynapse(BaseModel):
     class_name: str = 'PredictionSynapse'

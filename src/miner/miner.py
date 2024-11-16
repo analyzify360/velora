@@ -56,9 +56,9 @@ class Miner(Module):
     @endpoint
     def forwardSignalEventSynapse(self, synapse: dict):
         synapse = SignalEventSynapse(**synapse)
-        signals = self.db_manager.fetch_signals(synapse.timestamp, synapse.pool_address)
+        signal = self.db_manager.find_signal(synapse.timestamp, synapse.pool_address)
         
-        return SignalEventResponse(data = signals).json()
+        return SignalEventResponse(**signal).json()
     
     @endpoint
     def forwardPredictionSynapse(self, synapse: PredictionSynapse):
