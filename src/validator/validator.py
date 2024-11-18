@@ -546,14 +546,14 @@ class VeloraValidator(Module):
         
         def get_min_max_deviations(deviations: dict):
             min_deviations = {
-                'price': min([deviation['price'] for key, deviation in deviations]),
-                'liquidity': min([deviation['liquidity'] for key, deviation in deviations]),
-                'volume': min([deviation['volume'] for key, deviation in deviations]),
+                'price': min([deviation['price'] for deviation in deviations.values()]),
+                'liquidity': min([deviation['liquidity'] for deviation in deviations.values()]),
+                'volume': min([deviation['volume'] for deviation in deviations.values()])
             }
             max_deviations = {
-                'price': max([deviation['price'] for deviation in deviations]),
-                'liquidity': max([deviation['liquidity'] for deviation in deviations]),
-                'volume': max([deviation['volume'] for deviation in deviations]),
+                'price': max([deviation['price'] for deviation in deviations.values()]),
+                'liquidity': max([deviation['liquidity'] for deviation in deviations.values()]),
+                'volume': max([deviation['volume'] for deviation in deviations.values()])
             }
             return min_deviations, max_deviations
 
@@ -563,10 +563,10 @@ class VeloraValidator(Module):
                 'liquidity': 1 - (deviation['liquidity'] - min_deviations['liquidity']) / (max_deviations['liquidity'] - min_deviations['liquidity'] + EPS),
                 'volume': 1 - (deviation['volume'] - min_deviations['volume']) / (max_deviations['volume'] - min_deviations['volume'] + EPS),
             }
-            for key, deviation in deviations}
+            for key, deviation in deviations.items()}
         
         def get_deviation_score(scores):
-            return [{key: (score['price'] + score['liquidity'] + score['volume']) / 3} for key, score in scores]
+            return {key: (score['price'] + score['liquidity'] + score['volume']) / 3 for key, score in scores.items()}
         
         min_deviations, max_deviations = get_min_max_deviations(deviations)
         deviation_scores = get_deviation_scores(deviations, min_deviations, max_deviations)
