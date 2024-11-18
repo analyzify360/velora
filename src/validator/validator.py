@@ -435,8 +435,9 @@ class VeloraValidator(Module):
         # count the number of correct entries
 
         accuracy_score = self.check_miner_answer_pool_event(synapse, miner_answer)
+        print(f'pool_events/accuracy_score: {accuracy_score}')
         
-        accuracy_score = ((accuracy_score - 0.75) * 4) ** 3
+        accuracy_score = (max((accuracy_score - 0.75), 0) * 4) ** 3
 
         return accuracy_score
 
@@ -483,15 +484,16 @@ class VeloraValidator(Module):
             # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
             assert score <= 1
             accuracy_score[key] = score
-            
-        print(f'pool_events:process_time_score: {process_time_score}')
-        print(f'pool_events:accuracy_score: {accuracy_score}')
+
         if(len(process_time_score) == 0):
             return {}
         
         max_time = max(process_time_score.values())
         min_time = min(process_time_score.values())
         process_time_score = {key: 1 - 0.5 * (process_time - min_time) / (max_time - min_time + EPS) for key, process_time in process_time_score.items()}
+            
+        print(f'pool_events:process_time_score: {process_time_score}')
+        print(f'pool_events:accuracy_score: {accuracy_score}')
         overall_score = {key: ((accuracy_score[key] + process_time_score[key]) / 2) for key in accuracy_score.keys()}
         
         return overall_score
@@ -566,7 +568,7 @@ class VeloraValidator(Module):
         deviation_scores = get_deviation_scores(deviations, min_deviations, max_deviations)
         deviation_score = get_deviation_score(deviation_scores)
         
-        overall_score = {key: ((deviation_score[key] + process_time_score[key]) / 2) for key in accuracy_score.keys()}
+        overall_score = {key: ((deviation_score[key] + process_time_score[key]) / 2) for key in process_time_score.keys()}
         
         return overall_score
     
@@ -611,7 +613,6 @@ class VeloraValidator(Module):
         # Check signals
         signal_event_synapses = self.get_signal_event_synapse(health_data)
         signal_events = self.get_miner_answer(valid_miner_infos, signal_event_synapses)
-        print(f'signal_events: {signal_events}')
         
         miner_results_signal_events = list(zip(valid_miner_infos.keys(), signal_events))
         
