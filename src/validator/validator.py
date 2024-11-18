@@ -401,15 +401,20 @@ class VeloraValidator(Module):
         pool_address = miner_prompt.pool_address
         timestamp = miner_prompt.timestamp
         
-        miner_data = miner_answer.data
-        if miner_data is None:
+        if miner_answer is None:
             return False
-        ground_truth = self.uniswap_fetcher_rs.get_signals_by_pool_address(pool_address, timestamp, '5m')
+        str_ground_truth = self.uniswap_fetcher_rs.get_signals_by_pool_address(pool_address, timestamp, 5 * 60)
+        ground_truth = {
+            'price': float(str_ground_truth['price']),
+            'liquidity': float(str_ground_truth['liquidity']),
+            'volume': float(str_ground_truth['volume']),
+        }
+        print(f'ground_truth: {ground_truth}')
         
         return {
-            'price': abs(ground_truth['price'] - miner_data.price),
-            'liquidity': abs(ground_truth['liquidity'] - miner_data.liquidity),
-            'volume': abs(ground_truth['volume'] - miner_data.volume),
+            'price': abs(ground_truth['price'] - miner_answer.price),
+            'liquidity': abs(ground_truth['liquidity'] - miner_answer.liquidity),
+            'volume': abs(ground_truth['volume'] - miner_answer.volume),
         }
 
     def check_pool_event_accuracy(self, synapse: PoolEventSynapse, miner_answer: PoolEventResponse) -> float:
@@ -479,7 +484,8 @@ class VeloraValidator(Module):
             assert score <= 1
             accuracy_score[key] = score
             
-        print(f'process_time_score: {process_time_score}')
+        print(f'pool_events:process_time_score: {process_time_score}')
+        print(f'pool_events:accuracy_score: {accuracy_score}')
         if(len(process_time_score) == 0):
             return {}
         
@@ -605,6 +611,7 @@ class VeloraValidator(Module):
         # Check signals
         signal_event_synapses = self.get_signal_event_synapse(health_data)
         signal_events = self.get_miner_answer(valid_miner_infos, signal_event_synapses)
+        print(f'signal_events: {signal_events}')
         
         miner_results_signal_events = list(zip(valid_miner_infos.keys(), signal_events))
         

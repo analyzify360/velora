@@ -27,9 +27,9 @@ class SignalEventSynapse(BaseModel):
 
 class SignalEventResponse(BaseModel):
     class_name: str = 'SignalEventResponse'
-    price: float
-    liquidity: float
-    volume: float
+    price: float = 0
+    liquidity: float = 0
+    volume: float = 0
     
 class PredictionSynapse(BaseModel):
     class_name: str = 'PredictionSynapse'

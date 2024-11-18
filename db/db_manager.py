@@ -204,8 +204,12 @@ class DBManager:
             
     def find_signal(self, timestamp: int, pool_address: str):
         with self.Session() as session:
-            result = session.query(UniswapSignalsTable).filter_by(timestamp = timestamp, pool_address = pool_address).one()
-            signal = {'price': result.price, 'liquidity': result.liquidity, 'volume': result.volume}
+            print(f'Finding uniswap singal table by timetable {timestamp} and pool address {pool_address}')
+            result = session.query(UniswapSignalsTable).filter_by(timestamp = timestamp, pool_address = pool_address).all()
+            if(len(result) == 0):
+                signal = {}
+            else:
+                signal = {'price': result[0].price, 'liquidity': result[0].liquidity, 'volume': result[0].volume}
         return signal
     
     def fetch_pool_events(self, start_block: int, end_block: int):
