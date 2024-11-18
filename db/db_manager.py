@@ -8,15 +8,20 @@ from datetime import datetime
 
 # Define the base class for your table models
 Base = declarative_base()
+class BaseTable(Base):
+    __abstract__ = True
+    
+    def to_dict(self):
+        return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
 # Define the timetable table
-class Timetable(Base):
+class Timetable(BaseTable):
     __tablename__ = 'timetable'
     start = Column(Date, primary_key=True)  # Assuming 'start' is a unique field, hence primary key
     end = Column(Date)
     completed = Column(Boolean)
 
-class Tokenpairstable(Base):
+class TokenPairtable(BaseTable):
     __tablename__ = 'token_pairs'
     id = Column(Integer, primary_key=True, autoincrement=True)
     token0 = Column(String, nullable=False)
@@ -26,14 +31,7 @@ class Tokenpairstable(Base):
     block_number = Column(String, nullable=False)
     completed = Column(Boolean, nullable=False)
 
-class Pooldatatable(Base):
-    __tablename__ = 'pool_data'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    block_number = Column(String, nullable=False)
-    event_type = Column(String, nullable=False)
-    transaction_hash = Column(String, nullable=False)
-
-class SwapEventTable(Base):
+class SwapEventTable(BaseTable):
     __tablename__ = 'swap_event'
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
@@ -47,7 +45,7 @@ class SwapEventTable(Base):
     liquidity = Column(String, nullable=False)  # U256 can be stored as String
     tick = Column(Integer, nullable=False)  # i32 can be stored as Integer
 
-class MintEventTable(Base):
+class MintEventTable(BaseTable):
     __tablename__ = 'mint_event'
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
@@ -61,7 +59,7 @@ class MintEventTable(Base):
     amount0 = Column(String, nullable=False)  # U256 can be stored as String
     amount1 = Column(String, nullable=False)  # U256 can be stored as String
 
-class BurnEventTable(Base):
+class BurnEventTable(BaseTable):
     __tablename__ = 'burn_event'
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
@@ -74,7 +72,7 @@ class BurnEventTable(Base):
     amount0 = Column(String, nullable=False)  # U256 can be stored as String
     amount1 = Column(String, nullable=False)  # U256 can be stored as String
 
-class CollectEventTable(Base):
+class CollectEventTable(BaseTable):
     __tablename__ = 'collect_event'
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_hash = Column(String, nullable=False)
@@ -87,14 +85,14 @@ class CollectEventTable(Base):
     amount0 = Column(String, nullable=False)  # U256 can be stored as String
     amount1 = Column(String, nullable=False)  # U256 can be stored as String
 
-class UniswapSignalsTable(Base):
+class UniswapSignalsTable(BaseTable):
     __tablename__ = 'uniswap_signals'
     timestamp = Column(Integer, nullable=False, primary_key=True)
     pool_address = Column(String, nullable=False, primary_key=True)
     price = Column(String)
     liquidity = Column(String)
     volume = Column(String)
-    
+
 class DBManager:
 
     def __init__(self, url = get_postgres_url()) -> None:
@@ -160,7 +158,7 @@ class DBManager:
         """Add token pairs to the corresponding table."""
         
         insert_values = [
-            Tokenpairstable(token0 = token_pair['token0'], token1 = token_pair['token1'], fee = token_pair['fee'], pool = token_pair['pool'], block_number = token_pair['block_number'], completed = False)
+            TokenPairtable(token0 = token_pair['token0'], token1 = token_pair['token1'], fee = token_pair['fee'], pool = token_pair['pool'], block_number = token_pair['block_number'], completed = False)
             for token_pair in token_pairs
         ]
         
@@ -171,22 +169,22 @@ class DBManager:
     def fetch_token_pairs(self):
         """Fetch all token pairs from the corresponding table."""
         with self.Session() as session:
-            token_pairs = session.query(Tokenpairstable).all()
+            token_pairs = session.query(TokenPairtable).all()
             return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed, 'pool_address': row.pool} for row in token_pairs]
 
     def fetch_incompleted_token_pairs(self) -> List[Dict[str, Union[str, int, bool]]]:
         """Fetch all incompleted token pairs from the corresponding table."""
         with self.Session() as session:
-            incompleted_token_pairs = session.query(Tokenpairstable).filter_by(completed=False).all()
+            incompleted_token_pairs = session.query(TokenPairtable).filter_by(completed=False).all()
             return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed} for row in incompleted_token_pairs]
 
     def mark_token_pairs_as_complete(self, token_pairs: List[tuple]) -> bool:
         """Mark a token pair as complete."""
         with self.Session() as session:
             for token_pair in token_pairs:
-                record = session.query(Tokenpairstable).filter_by(token0=token_pair[0], token1=token_pair[1], fee=token_pair[2]).first()
+                record = session.query(TokenPairtable).filter_by(token0=token_pair[0], token1=token_pair[1], fee=token_pair[2]).first()
                 if record:
-                    session.query(Tokenpairstable).filter_by(token0=token_pair[0], token1=token_pair[1], fee=token_pair[2]).update({Tokenpairstable.completed: True})
+                    session.query(TokenPairtable).filter_by(token0=token_pair[0], token1=token_pair[1], fee=token_pair[2]).update({TokenPairtable.completed: True})
                 else:
                     return False
             session.commit()
@@ -194,14 +192,18 @@ class DBManager:
     def reset_token_pairs(self):
         """Reset the token pairs completed state"""
         with self.Session() as session:
-            session.query(Tokenpairstable).update({Tokenpairstable.completed: False})
+            session.query(TokenPairtable).update({TokenPairtable.completed: False})
             session.commit()
             
-    def fetch_signals(self, timestamp: int, pool_address: str):
+    def find_signal(self, timestamp: int, pool_address: str):
         with self.Session() as session:
+            print(f'Finding uniswap singal table by timetable {timestamp} and pool address {pool_address}')
             result = session.query(UniswapSignalsTable).filter_by(timestamp = timestamp, pool_address = pool_address).all()
-            signals = [{'price': row.price, 'liquidity': row.liquidity, 'volume': row.volume} for row in result]
-        return signals
+            if(len(result) == 0):
+                signal = {}
+            else:
+                signal = {'price': result[0].price, 'liquidity': result[0].liquidity, 'volume': result[0].volume}
+        return signal
     
     def fetch_pool_events(self, start_block: int, end_block: int):
         swap_events = self.fetch_swap_events(start_block, end_block)

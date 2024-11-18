@@ -17,7 +17,7 @@ __pycache__
 .env
 .venv/
 venv/
-pool_data_fetcher/target/
+uniswap_fetcher_rs/target/
 jwt/
 rust_backend/target/
 jwt/

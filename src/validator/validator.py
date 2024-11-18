@@ -38,8 +38,9 @@ from utils.log import log
 from utils.protocols import (HealthCheckSynapse, HealthCheckResponse,
                              PoolEventSynapse, PoolEventResponse,
                              SignalEventSynapse, SignalEventResponse,
-                             PredictionSynapse, PredictionSynapse)
-import pool_data_fetcher
+                             PredictionSynapse, PredictionResponse,
+                             class_dict)
+from uniswap_fetcher_rs import UniswapFetcher
 
 from communex._common import ComxSettings  # type: ignore
 
@@ -54,7 +55,11 @@ IP_REGEX = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+")
 
 EPS = 1e-10
 START_TIMESTAMP = int(datetime(2021, 5, 4).timestamp())
+SIGNAL_INTERVAL = 5 * 60
 DAY_SECONDS = 86400
+
+PREDICTION_SYNAPSE_INTERVAL = 30 * 60
+PREDICTION_CHECK_DELAY = 60
 
 def check_url_testnet(url: str):
     mainnet_urls = ComxSettings().NODE_URLS
@@ -209,7 +214,7 @@ class VeloraValidator(Module):
         self.val_model = "foo"
         self.call_timeout = call_timeout
         
-        self.pool_data_fetcher = pool_data_fetcher.BlockchainClient(os.getenv('ETHEREUM_RPC_NODE_URL'))
+        self.uniswap_fetcher_rs = UniswapFetcher(os.getenv('ETHEREUM_RPC_NODE_URL'))
         self.wandb_running = False
         if wandb_on:
             self.init_wandb()
@@ -292,15 +297,18 @@ class VeloraValidator(Module):
         try:
             # handles the communication with the miner
             current_time = datetime.now()
-            miner_answer = asyncio.run(
+            miner_answer = dict()
+            response = asyncio.run(
                 client.call(
-                    f'forward{synapse.synapse_name}',
+                    f'forward{synapse.class_name}',
                     miner_key,
                     {"synapse": synapse.dict()},
                     timeout=self.call_timeout,  #  type: ignore
                 )
             )
-            miner_answer = json.loads(miner_answer)
+            response = json.loads(response)
+            # print(f'Response from miner: {response}')
+            miner_answer['data'] = class_dict[response['class_name']](**response)
             process_time = datetime.now() - current_time
             miner_answer["process_time"] = process_time
 
@@ -323,6 +331,8 @@ class VeloraValidator(Module):
             log("No miner managed to give an answer")
             return None
         
+        # print(f'miner answers: {answers}')
+        
         return answers
         
     def get_pool_event_synapses(self, healthy_data: list[HealthCheckResponse]) -> list[PoolEventSynapse]:
@@ -334,8 +344,9 @@ class VeloraValidator(Module):
         """
         synapses = []
         for miner_data in healthy_data:
-            if miner_data is None: continue
-            days = (miner_data.time_completed - START_TIMESTAMP) / DAY_SECONDS
+            if miner_data is None or miner_data['data'] is None: continue
+            miner_data = miner_data['data']
+            days = (miner_data.time_completed - START_TIMESTAMP) // DAY_SECONDS
             random_pick = random.randint(0, days)
             start_date = random_pick * DAY_SECONDS + START_TIMESTAMP
             end_date = start_date + DAY_SECONDS
@@ -359,7 +370,7 @@ class VeloraValidator(Module):
         start_datetime = miner_prompt.start_datetime
         end_datetime = miner_prompt.end_datetime
         
-        block_number_start, block_number_end = self.pool_data_fetcher.get_block_number_range(start_datetime, end_datetime)
+        block_number_start, block_number_end = self.uniswap_fetcher_rs.get_block_number_range(start_datetime, end_datetime)
         
         miner_data = miner_answer.data
         if miner_data is None:
@@ -376,14 +387,14 @@ class VeloraValidator(Module):
                 return False
             
             okay = 0
-            block_data_from_pools = self.pool_data_fetcher.get_pool_events_by_pool_address(pool_address, block_number, block_number)
+            block_data_from_pools = self.uniswap_fetcher_rs.get_pool_events_by_pool_addresses([pool_address], block_number, block_number)
             for block_data_of_pool in block_data_from_pools.get("data", []):
                 if block_data_of_pool.get("transaction_hash") == block_data.get("transaction_hash"):
                     okay = 1
             correct_count += okay
         return correct_count / ANSWER_CHECK_COUNT
 
-    def check_miner_answer_signal_event(self, miner_prompt: SignalEventSynapse, miner_answer: SignalEventResponse):
+    def get_deviations(self, miner_prompt: SignalEventSynapse, miner_answer: SignalEventResponse):
         """
         Check if the miner answers are valid.
         
@@ -394,29 +405,21 @@ class VeloraValidator(Module):
         pool_address = miner_prompt.pool_address
         timestamp = miner_prompt.timestamp
         
-        # block_number_start, block_number_end = self.pool_data_fetcher.get_block_number_range(start_datetime, end_datetime)
-        
-        miner_data = miner_answer.data
-        if miner_data is None:
+        if miner_answer is None:
             return False
-        ANSWER_CHECK_COUNT = 10
-        correct_count = 0
-        for _ in range(ANSWER_CHECK_COUNT):
-            block_data = random.choice(miner_data)
-            # block_number = block_data.get("block_number", None)
-            
-            # if block_number is None:
-            #     return False
-            # if block_number < block_number_start or block_number > block_number_end:
-            #     return False
-            
-            okay = 0
-            # block_data_from_pools = self.pool_data_fetcher.get_pool_events_by_pool_address(pool_address, block_number, block_number)
-            # for block_data_of_pool in block_data_from_pools.get("data", []):
-            #     if block_data_of_pool.get("transaction_hash") == block_data.get("transaction_hash"):
-            #         okay = 1
-            correct_count += okay
-        return correct_count / ANSWER_CHECK_COUNT
+        str_ground_truth = self.uniswap_fetcher_rs.get_signals_by_pool_address(pool_address, timestamp, SIGNAL_INTERVAL)
+        ground_truth = {
+            'price': float(str_ground_truth['price']),
+            'liquidity': float(str_ground_truth['liquidity']),
+            'volume': float(str_ground_truth['volume']),
+        }
+        print(f'ground_truth: {ground_truth}')
+        
+        return {
+            'price': abs(ground_truth['price'] - miner_answer.price),
+            'liquidity': abs(ground_truth['liquidity'] - miner_answer.liquidity),
+            'volume': abs(ground_truth['volume'] - miner_answer.volume),
+        }
 
     def check_pool_event_accuracy(self, synapse: PoolEventSynapse, miner_answer: PoolEventResponse) -> float:
         """
@@ -436,31 +439,9 @@ class VeloraValidator(Module):
         # count the number of correct entries
 
         accuracy_score = self.check_miner_answer_pool_event(synapse, miner_answer)
+        print(f'pool_events/accuracy_score: {accuracy_score}')
         
-        accuracy_score = ((accuracy_score - 0.75) * 4) ** 3
-
-        return accuracy_score
-
-    def check_signal_event_accuracy(self, synapse: SignalEventSynapse, miner_answer: SignalEventResponse):
-        """
-        Score the generated answer against the validator's own answer.
-
-        Args:
-            miner_answer: The generated answer from the miner module.
-
-        Returns:
-            The score assigned to the miner's answer.
-        """
-
-        # Implement your custom scoring logic here
-        if not miner_answer:
-            return 0
-        
-        # count the number of correct entries
-
-        accuracy_score = self.check_miner_answer_signal_event(synapse, miner_answer)
-        
-        accuracy_score = ((accuracy_score - 0.75) * 4) ** 3
+        accuracy_score = (max((accuracy_score - 0.75), 0) * 4) ** 3
 
         return accuracy_score
 
@@ -473,8 +454,9 @@ class VeloraValidator(Module):
         """
         synapses = []
         for miner_data in healthy_data:
-            if miner_data is None: continue
-            days = (miner_data.time_completed - START_TIMESTAMP) / (5 * 60)
+            if miner_data is None or miner_data['data'] is None: continue
+            miner_data = miner_data['data']
+            days = (miner_data.time_completed - START_TIMESTAMP) / (SIGNAL_INTERVAL)
             random_pick = random.randint(0, days)
             timestamp = random_pick * 300 + START_TIMESTAMP
             pool_addr = random.choice(miner_data.pool_addresses)
@@ -492,28 +474,30 @@ class VeloraValidator(Module):
             synapses: synapses for each miner
             miner_results: The results of the miner modules.
         """
+        process_time_score = {}
         accuracy_score: dict[int, float] = {}
+        
         for synapse, (key, miner_answer) in zip(synapses, miner_results):
             if not miner_answer:
                 log(f"Skipping miner {key} that didn't answer")
                 continue
+            process_time_score[key] = miner_answer["process_time"].total_seconds()
 
-            score = self.check_pool_event_accuracy(synapse, miner_answer)
+            score = self.check_pool_event_accuracy(synapse, miner_answer['data'])
             time.sleep(0.5)
             # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
             assert score <= 1
             accuracy_score[key] = score
+
+        if(len(process_time_score) == 0):
+            return {}
         
-        process_time_score = {}
-        for key, miner_answer in miner_results:
-            if not miner_answer:
-                continue
-            process_time_score[key] = miner_answer["process_time"].total_seconds()
-            
-        print(f'process_time_score: {process_time_score}')
         max_time = max(process_time_score.values())
         min_time = min(process_time_score.values())
         process_time_score = {key: 1 - 0.5 * (process_time - min_time) / (max_time - min_time + EPS) for key, process_time in process_time_score.items()}
+            
+        print(f'pool_events:process_time_score: {process_time_score}')
+        print(f'pool_events:accuracy_score: {accuracy_score}')
         overall_score = {key: ((accuracy_score[key] + process_time_score[key]) / 2) for key in accuracy_score.keys()}
         
         return overall_score
@@ -523,12 +507,12 @@ class VeloraValidator(Module):
         if len(valid_miner_results) == 0:
             return {}
         
-        timestamps = [miner_answer.time_completed for key, miner_answer in valid_miner_results]
+        timestamps = [miner_answer['data'].time_completed for key, miner_answer in valid_miner_results]
         mx_timestamp = max(timestamps)
         today_timestamp = datetime.today().timestamp()
         
-        amount_score = {key: (miner_answer.time_completed / mx_timestamp) for key, miner_answer in valid_miner_results}
-        recency_score = {key: max(0, (10 * DAY_SECONDS + miner_answer.time_completed - today_timestamp) / DAY_SECONDS / 10)
+        amount_score = {key: (miner_answer['data'].time_completed / mx_timestamp) for key, miner_answer in valid_miner_results}
+        recency_score = {key: max(0, (10 * DAY_SECONDS + miner_answer['data'].time_completed - today_timestamp) / DAY_SECONDS / 10)
                           for key, miner_answer in valid_miner_results}
         
         return {key: amount_score[key] * 0.6 + recency_score[key] * 0.4 for key in amount_score.keys()}
@@ -541,29 +525,57 @@ class VeloraValidator(Module):
             synapses: synapses for each miner
             miner_results: The results of the miner modules.
         """
-        accuracy_score: dict[int, float] = {}
+        process_time_score = {}
+        deviations: dict[int, float] = {}
+        
         for synapse, (key, miner_answer) in zip(synapses, miner_results):
             if not miner_answer:
                 log(f"Skipping miner {key} that didn't answer")
                 continue
-
-            score = self.check_signal_event_accuracy(synapse, miner_answer)
-            time.sleep(0.5)
-            # score has to be lower or eq to 1, as one is the best score, you can implement your custom logic
-            assert score <= 1
-            accuracy_score[key] = score
-        
-        process_time_score = {}
-        for key, miner_answer in miner_results:
-            if not miner_answer:
-                continue
             process_time_score[key] = miner_answer["process_time"].total_seconds()
+
+            deviations[key] = self.get_deviations(synapse, miner_answer['data'])
             
         print(f'process_time_score: {process_time_score}')
+        if len(process_time_score) == 0:
+            return {}
+        
         max_time = max(process_time_score.values())
         min_time = min(process_time_score.values())
         process_time_score = {key: 1 - 0.5 * (process_time - min_time) / (max_time - min_time + EPS) for key, process_time in process_time_score.items()}
-        overall_score = {key: ((accuracy_score[key] + process_time_score[key]) / 2) for key in accuracy_score.keys()}
+        
+        def get_min_max_deviations(deviations: dict):
+            min_deviations = {
+                'price': min([deviation['price'] for deviation in deviations.values()]),
+                'liquidity': min([deviation['liquidity'] for deviation in deviations.values()]),
+                'volume': min([deviation['volume'] for deviation in deviations.values()])
+            }
+            max_deviations = {
+                'price': max([deviation['price'] for deviation in deviations.values()]),
+                'liquidity': max([deviation['liquidity'] for deviation in deviations.values()]),
+                'volume': max([deviation['volume'] for deviation in deviations.values()])
+            }
+            return min_deviations, max_deviations
+
+        def get_deviation_scores(deviations, min_deviations, max_deviations):
+            return {key: {
+                'price': 1 - (deviation['price'] - min_deviations['price']) / (max_deviations['price'] - min_deviations['price'] + EPS),
+                'liquidity': 1 - (deviation['liquidity'] - min_deviations['liquidity']) / (max_deviations['liquidity'] - min_deviations['liquidity'] + EPS),
+                'volume': 1 - (deviation['volume'] - min_deviations['volume']) / (max_deviations['volume'] - min_deviations['volume'] + EPS),
+            }
+            for key, deviation in deviations.items()}
+        
+        def get_deviation_score(scores):
+            return {key: (score['price'] + score['liquidity'] + score['volume']) / 3 for key, score in scores.items()}
+        
+        min_deviations, max_deviations = get_min_max_deviations(deviations)
+        deviation_scores = get_deviation_scores(deviations, min_deviations, max_deviations)
+        deviation_score = get_deviation_score(deviation_scores)
+            
+        print(f'signal_events:process_time_score: {process_time_score}')
+        print(f'signal_events:deviation_score: {deviation_score}')
+        
+        overall_score = {key: ((deviation_score[key] + process_time_score[key]) / 2) for key in process_time_score.keys()}
         
         return overall_score
     
@@ -590,7 +602,7 @@ class VeloraValidator(Module):
         miner_results_health_data = list(zip(modules_info.keys(), health_data))
         
         health_score = self.score_health_check(miner_results_health_data)
-        valid_miner_infos = [modules_info[key] for key in health_score]
+        valid_miner_infos = {key: modules_info[key] for key in health_score}
         log(f'valid_miner_infos: {valid_miner_infos}')
         
         if len(valid_miner_infos) == 0:
@@ -606,17 +618,17 @@ class VeloraValidator(Module):
         pool_events_score = self.score_pool_events(pool_event_check_synapses, miner_results_pool_events)
         
         # Check signals
-        signal_event_synapse = self.get_signal_event_synapse(health_data)
-        signal_events = self.get_miner_answer(valid_miner_infos, signal_event_synapse)
+        signal_event_synapses = self.get_signal_event_synapse(health_data)
+        signal_events = self.get_miner_answer(valid_miner_infos, signal_event_synapses)
         
         miner_results_signal_events = list(zip(valid_miner_infos.keys(), signal_events))
         
-        signal_events_score = self.score_signal_events(miner_results_signal_events)
+        signal_events_score = self.score_signal_events(signal_event_synapses, miner_results_signal_events)
         
         # Check prediction
         # prediction_synapse = PredictionSynapse()
         
-        score_dict = {key: health_score[key] * 0.3 + pool_events_score[key] * 0.3 + signal_events_score[key] * 0.4 for key in modules_info.keys()}
+        score_dict = {key: health_score[key] * 0.3 + pool_events_score[key] * 0.3 + signal_events_score[key] * 0.4 for key in valid_miner_infos.keys()}
 
         if not score_dict:
             log("No miner managed to give a valid answer")
