@@ -21,7 +21,7 @@ Velora's architecture is designed for scalability and performance. By utilizing 
 
 ## Workflow
 
-![Workflow](https://github.com/drunest/velora-subnet/blob/main/images/velora-workflow.png)
+![Workflow](https://github.com/nestlest/velora/blob/main/images/velora-workflow.png)
 
 ## Setup
 
@@ -104,14 +104,14 @@ To evaluate miners based on their responses:
 1. **Collect Results**:
    Gather the results from all miners, ensuring to include their unique identifiers and response data.
 
-2. **Benchmarking**:
-   Use the trusted results from trusted miners as a benchmark for comparison.
+2. **Accuracy Assessment**:
+   Score each miner's response based on its accuracy relative to the pool data. 
 
-3. **Accuracy Assessment**:
-   Score each miner's response based on its accuracy relative to the trusted miner's results. 
-
-4. **Processing Time Measurement**:
+3. **Processing Time Measurement**:
    Evaluate the processing time for each miner's response. Normalize these times to derive a processing time score, ensuring faster responses are scored higher.
 
+4. **Calculate the score for each synapse**
+   Calculat the score for each synapse (HealthCheck, PoolEvent, SignalEvent) as the mean of the process time score and accuracy score.
+
 5. **Overall Scoring**:
-   Calculate the overall score for each miner by averaging their accuracy score and processing time score. The final scores will range from 0 to 1, with higher scores indicating better performance.
+   Calculate the overall score for each miner by weighted sum of their scores. The final scores will range from 0 to 1, with higher scores indicating better performance.
