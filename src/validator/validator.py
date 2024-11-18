@@ -55,7 +55,11 @@ IP_REGEX = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+")
 
 EPS = 1e-10
 START_TIMESTAMP = int(datetime(2021, 5, 4).timestamp())
+SIGNAL_INTERVAL = 5 * 60
 DAY_SECONDS = 86400
+
+PREDICTION_SYNAPSE_INTERVAL = 30 * 60
+PREDICTION_CHECK_DELAY = 60
 
 def check_url_testnet(url: str):
     mainnet_urls = ComxSettings().NODE_URLS
@@ -403,7 +407,7 @@ class VeloraValidator(Module):
         
         if miner_answer is None:
             return False
-        str_ground_truth = self.uniswap_fetcher_rs.get_signals_by_pool_address(pool_address, timestamp, 5 * 60)
+        str_ground_truth = self.uniswap_fetcher_rs.get_signals_by_pool_address(pool_address, timestamp, SIGNAL_INTERVAL)
         ground_truth = {
             'price': float(str_ground_truth['price']),
             'liquidity': float(str_ground_truth['liquidity']),
@@ -452,7 +456,7 @@ class VeloraValidator(Module):
         for miner_data in healthy_data:
             if miner_data is None or miner_data['data'] is None: continue
             miner_data = miner_data['data']
-            days = (miner_data.time_completed - START_TIMESTAMP) / (5 * 60)
+            days = (miner_data.time_completed - START_TIMESTAMP) / (SIGNAL_INTERVAL)
             random_pick = random.randint(0, days)
             timestamp = random_pick * 300 + START_TIMESTAMP
             pool_addr = random.choice(miner_data.pool_addresses)
@@ -567,6 +571,9 @@ class VeloraValidator(Module):
         min_deviations, max_deviations = get_min_max_deviations(deviations)
         deviation_scores = get_deviation_scores(deviations, min_deviations, max_deviations)
         deviation_score = get_deviation_score(deviation_scores)
+            
+        print(f'signal_events:process_time_score: {process_time_score}')
+        print(f'signal_events:deviation_score: {deviation_score}')
         
         overall_score = {key: ((deviation_score[key] + process_time_score[key]) / 2) for key in process_time_score.keys()}
         
