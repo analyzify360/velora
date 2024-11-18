@@ -12,7 +12,7 @@ The decentralized finance (DeFi) ecosystem relies on liquidity pools for token s
 
 Velora's architecture is designed for scalability and performance. By utilizing individual miners' own RPC endpoints—either through local Ethereum nodes or paid services—Velora ensures optimized data fetching speeds. This leads to higher throughput and more reliable query responses, enhancing both the user and miner experience in the network.
 
-## Recommended Hardware Requirements for a Ethereum RPC Node
+## Recommended Hardware Requirements for an Ethereum RPC Node
 
 - **CPU**: Fast CPU with 4+ cores. A higher clock speed is important, starting at 3.5 GHz or more.
 - **RAM**: Minimum of 16 GB RAM; 32 GB is recommended for optimal performance.
