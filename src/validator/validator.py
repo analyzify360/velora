@@ -590,8 +590,11 @@ class VeloraValidator(Module):
         pred_timestamps = [first_pred_timestamp + i * 5 * 60 for i in range(6)]
         real_prices = self.uniswap_fetcher_rs.get_token_prices_from_chain(pred_timestamps)
         # Direction Score
-        # for key, miner_answer in miner_results:
-            # for i in range
+        for key, miner_answer in miner_results:
+            deviation
+            for i in range(6):
+                miner_value = miner_answer.prices[i]
+                deviation = abs(miner_value - real_prices[i])
         # Deviation Score
     
     async def manage_prediction_synapse(self, miner_infos: dict, settings: ValidatorSettings):
