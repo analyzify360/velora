@@ -579,7 +579,7 @@ class VeloraValidator(Module):
         
         return overall_score
     
-    async def manage_prediction_synapse(miner_infos: dict):
+    async def manage_prediction_synapse(self, miner_infos: dict, settings: ValidatorSettings):
         """
         Manages the timeline of prediction synapses.
         """
@@ -591,8 +591,27 @@ class VeloraValidator(Module):
             return
         elif minutes < 27:
             print('Checking miner responses and Setting weights')
-        elif minutes < 28:
+            if self.prediction_results is None:
+                print('No saved miner prediction results!')
+                return
+            score_dict = self.score_prediction(self.prediction_results)
+
+            if not score_dict:
+                log("No miner managed to give a valid answer")
+                return None
+            
+            log(score_dict)
+
+            # the blockchain call to set the weights
+            _ = set_weights(settings, score_dict, self.netuid, self.client, self.key)
+                
+        elif minutes < 29:
             print('Send prediction synapses and receive responses')
+            next_timestamp_to_predict = now - time_in_slot + PREDICTION_SYNAPSE_INTERVAL
+            
+            synapse = PredictionSynapse(timestamp = next_timestamp_to_predict)
+            miner_results = self.get_miner_answer(miner_infos, synapse)
+            self.prediction_results = list(zip(miner_infos.keys(), miner_results))
         
     
     async def validate_step(
@@ -642,7 +661,7 @@ class VeloraValidator(Module):
         signal_events_score = self.score_signal_events(signal_event_synapses, miner_results_signal_events)
         
         # Check prediction
-        self.manage_prediction_synapse(valid_miner_infos)
+        self.manage_prediction_synapse(valid_miner_infos, settings)
         
         score_dict = {key: health_score[key] * 0.3 + pool_events_score[key] * 0.3 + signal_events_score[key] * 0.4 for key in valid_miner_infos.keys()}
 

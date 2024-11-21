@@ -37,6 +37,7 @@ class PredictionSynapse(BaseModel):
     
 class PredictionResponse(BaseModel):
     class_name: str = 'PredictionResponse'
+    prices: list[float]
 
 class_dict = {
     'HealthCheckSynapse': HealthCheckSynapse,
