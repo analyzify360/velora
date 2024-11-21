@@ -578,6 +578,21 @@ class VeloraValidator(Module):
         overall_score = {key: ((deviation_score[key] + process_time_score[key]) / 2) for key in process_time_score.keys()}
         
         return overall_score
+
+    def score_prediction(self, miner_results):
+        """
+        Score miners prediction results:
+        
+        Scores are calculated as the combination of deviation score and direction score.
+        """
+        now = datetime.now().timestamp()
+        first_pred_timestamp = now - now % PREDICTION_SYNAPSE_INTERVAL
+        pred_timestamps = [first_pred_timestamp + i * 5 * 60 for i in range(6)]
+        real_prices = self.uniswap_fetcher_rs.get_token_prices_from_chain(pred_timestamps)
+        # Direction Score
+        # for key, miner_answer in miner_results:
+            # for i in range
+        # Deviation Score
     
     async def manage_prediction_synapse(self, miner_infos: dict, settings: ValidatorSettings):
         """
