@@ -589,13 +589,26 @@ class VeloraValidator(Module):
         first_pred_timestamp = now - now % PREDICTION_SYNAPSE_INTERVAL
         pred_timestamps = [first_pred_timestamp + i * 5 * 60 for i in range(6)]
         real_prices = self.uniswap_fetcher_rs.get_token_prices_from_chain(pred_timestamps)
-        # Direction Score
+        real_prices_direction = [real_prices[i] > real_prices[i + 1] for i in range(5)]
+        
+        score_dict: dict = {}
+        direction_score: dict = {}
+        miner_deviation: dict = {}
+        
         for key, miner_answer in miner_results:
-            deviation
-            for i in range(6):
-                miner_value = miner_answer.prices[i]
-                deviation = abs(miner_value - real_prices[i])
-        # Deviation Score
+            deviations = [abs(miner_answer.prices[i] - real_prices[i]) for i in range(6)]
+            miner_direction = [miner_answer.prices[i] > miner_answer.prices[i + 1] for i in range(5)]
+            miner_deviation[key] = sum([deviations[i] ** 2 for i in range(6)])
+            
+            direction_score[key] = sum([miner_direction[i] == real_prices_direction[i] for i in range(5)]) * 0.2
+        
+        max_deviation = max(miner_deviation.values())
+        min_deviation = min(miner_deviation.values())
+        
+        miner_deviation = {key: 1 - (value - min_deviation) / (max_deviation - min_deviation + EPS) for key, value in miner_deviation.items()}
+        
+        score_dict = {direction_score[key] * 0.5 + miner_deviation[key] * 0.5 for key in direction_score.keys()}
+        return score_dict
     
     async def manage_prediction_synapse(self, miner_infos: dict, settings: ValidatorSettings):
         """
