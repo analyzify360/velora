@@ -6,6 +6,11 @@ from ta.trend import MACD
 from ta.momentum import RSIIndicator, ROCIndicator
 
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
 
 from db.db_manager import DBManager
 
@@ -36,15 +41,53 @@ def load_datasets_from_db():
 def preprocess(dataset: DataFrame):
     X = dataset[['price', 'SMA_50', 'SMA_200', 'RSI', 'Momentum', 'MACD']].values
     y = dataset[['NextPrice1', 'NextPrice2', 'NextPrice3', 'NextPrice4', 'NextPrice5', 'NextPrice6']].values
-    print(X)
     
     X_scaler = MinMaxScaler(feature_range=(0, 1))
     y_scaler = MinMaxScaler(feature_range=(0, 1))
     X_scaled = X_scaler.fit_transform(X)
     y_scaled = y_scaler.fit_transform(y)
+    print(X)
     
     return X_scaler, y_scaler, X_scaled, y_scaled
 
+def base_lstm_model(X, y):
+    model = Sequential()
+    model.add(LSTM(units=50, return_sequences=True, input_shape=(X.shape[1], X.shape[2])))
+    model.add(Dropout(0.2))
+    model.add(LSTM(units=50, return_sequences=False))
+    model.add(Dropout(0.2))
+    model.add(Dense(units=y.shape[1]))
+    
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    
+    return model
+
+def train(X_scaler, y_scaler, X, y):
+    model_name = './base_model/lstm_model'
+    
+    X = X.reshape(X.shape[0], 1, X.shape[1])
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2)
+    
+    model = base_lstm_model(X_train, y_train)
+    
+    model.fit(X_train, y_train, epochs=100, batch_size=32)
+    model.save(f'{model_name}.h5')
+    
+    predicted_prices = model.predict(X_test)
+    
+    predicted_prices = y_scaler.inverse_transform(predicted_prices)
+    y_test_rescaled = y_scaler.inverse_transform(y_test.reshape(-1, 6))
+    
+    mse = mean_squared_error(y_test_rescaled, predicted_prices)
+    print(f'Mean Squared Error: {mse}')
+    print('-------------------------------------------')
+    print(y_test_rescaled)
+    print('********************************************')
+    print(predicted_prices)
+    
+    return mse
+
 if __name__ == '__main__':
     dataset = load_datasets_from_db()
-    preprocess(dataset)
+    X_scaler, y_scaler, X, y = preprocess(dataset)
+    mse_loss = train(X_scaler, y_scaler, X, y)

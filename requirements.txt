@@ -11,3 +11,5 @@ wandb==0.18.7
 scikit-learn
 pandas
 ta
+torch
+tensorflow
