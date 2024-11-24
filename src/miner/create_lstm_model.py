@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
+import joblib
 
 from ta.trend import MACD
 from ta.momentum import RSIIndicator, ROCIndicator
@@ -46,7 +47,6 @@ def preprocess(dataset: DataFrame):
     y_scaler = MinMaxScaler(feature_range=(0, 1))
     X_scaled = X_scaler.fit_transform(X)
     y_scaled = y_scaler.fit_transform(y)
-    print(X)
     
     return X_scaler, y_scaler, X_scaled, y_scaled
 
@@ -63,7 +63,7 @@ def base_lstm_model(X, y):
     return model
 
 def train(X_scaler, y_scaler, X, y):
-    model_name = './base_model/lstm_model'
+    model_path = './base_model'
     
     X = X.reshape(X.shape[0], 1, X.shape[1])
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2)
@@ -71,7 +71,9 @@ def train(X_scaler, y_scaler, X, y):
     model = base_lstm_model(X_train, y_train)
     
     model.fit(X_train, y_train, epochs=100, batch_size=32)
-    model.save(f'{model_name}.h5')
+    model.save(f'{model_path}/lstm_model.h5')
+    joblib.dump(X_scaler, f'{model_path}/X_scaler.pkl')
+    joblib.dump(y_scaler, f'{model_path}/y_scaler.pkl')
     
     predicted_prices = model.predict(X_test)
     
