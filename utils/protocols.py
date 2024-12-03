@@ -28,8 +28,10 @@ class PoolMetricEventSynapse(BaseModel):
 class PoolMetricEventResponse(BaseModel):
     class_name: str = 'PoolMetricEventResponse'
     price: float = 0
-    liquidity: float = 0
-    volume: float = 0
+    liquidity_token0: float = 0
+    liquidity_token1: float = 0
+    volume_token0: float = 0
+    volume_token1: float = 0
     
 class PredictionSynapse(BaseModel):
     class_name: str = 'PredictionSynapse'
