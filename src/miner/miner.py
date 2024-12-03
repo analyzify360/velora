@@ -56,11 +56,11 @@ class Miner(Module):
     @endpoint
     def forwardPoolMetricSynapse(self, synapse: dict):
         synapse = PoolMetricSynapse(**synapse)
-        signal = self.db_manager.find_signal(synapse.timestamp, synapse.pool_address)
-        print(f'signal found: {signal}')
-        print(f'signal jsonified: {PoolMetricResponse(**signal).json()}')
+        pool_metric = self.db_manager.find_pool_metric(synapse.timestamp, synapse.pool_address)
+        print(f'pool_metric found: {pool_metric}')
+        print(f'pool_metric jsonified: {PoolMetricResponse(**pool_metric).json()}')
         
-        return PoolMetricResponse(**signal).json()
+        return PoolMetricResponse(**pool_metric).json()
     
     @endpoint
     def forwardPredictionSynapse(self, synapse: PredictionSynapse):
