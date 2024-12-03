@@ -580,6 +580,72 @@ class VeloraValidator(Module):
         overall_score = {key: ((deviation_score[key] + process_time_score[key]) / 2) for key in process_time_score.keys()}
         
         return overall_score
+
+    def score_prediction(self, miner_results):
+        """
+        Score miners prediction results:
+        
+        Scores are calculated as the combination of deviation score and direction score.
+        """
+        now = datetime.now().timestamp()
+        first_pred_timestamp = now - now % PREDICTION_SYNAPSE_INTERVAL
+        pred_timestamps = [first_pred_timestamp + i * 5 * 60 for i in range(6)]
+        real_prices = self.uniswap_fetcher_rs.get_token_prices_from_chain(pred_timestamps)
+        real_prices_direction = [real_prices[i] > real_prices[i + 1] for i in range(5)]
+        
+        score_dict: dict = {}
+        direction_score: dict = {}
+        miner_deviation: dict = {}
+        
+        for key, miner_answer in miner_results:
+            deviations = [abs(miner_answer.prices[i] - real_prices[i]) for i in range(6)]
+            miner_direction = [miner_answer.prices[i] > miner_answer.prices[i + 1] for i in range(5)]
+            miner_deviation[key] = sum([deviations[i] ** 2 for i in range(6)])
+            
+            direction_score[key] = sum([miner_direction[i] == real_prices_direction[i] for i in range(5)]) * 0.2
+        
+        max_deviation = max(miner_deviation.values())
+        min_deviation = min(miner_deviation.values())
+        
+        miner_deviation = {key: 1 - (value - min_deviation) / (max_deviation - min_deviation + EPS) for key, value in miner_deviation.items()}
+        
+        score_dict = {direction_score[key] * 0.5 + miner_deviation[key] * 0.5 for key in direction_score.keys()}
+        return score_dict
+    
+    async def manage_prediction_synapse(self, miner_infos: dict, settings: ValidatorSettings):
+        """
+        Manages the timeline of prediction synapses.
+        """
+        now = datetime.now().timestamp()
+        time_in_slot = now % PREDICTION_SYNAPSE_INTERVAL
+        minutes = time_in_slot / 60
+        
+        if minutes < 26:
+            return
+        elif minutes < 27:
+            print('Checking miner responses and Setting weights')
+            if self.prediction_results is None:
+                print('No saved miner prediction results!')
+                return
+            score_dict = self.score_prediction(self.prediction_results)
+
+            if not score_dict:
+                log("No miner managed to give a valid answer")
+                return None
+            
+            log(score_dict)
+
+            # the blockchain call to set the weights
+            _ = set_weights(settings, score_dict, self.netuid, self.client, self.key)
+                
+        elif minutes < 29:
+            print('Send prediction synapses and receive responses')
+            next_timestamp_to_predict = now - time_in_slot + PREDICTION_SYNAPSE_INTERVAL
+            
+            synapse = PredictionSynapse(timestamp = next_timestamp_to_predict)
+            miner_results = self.get_miner_answer(miner_infos, synapse)
+            self.prediction_results = list(zip(miner_infos.keys(), miner_results))
+        
     
     async def validate_step(
         self, velora_netuid: int, settings: ValidatorSettings
@@ -628,7 +694,7 @@ class VeloraValidator(Module):
         pool_metric_events_score = self.score_pool_metric_events(pool_metric_event_synapses, miner_results_pool_metric_events)
         
         # Check prediction
-        # prediction_synapse = PredictionSynapse()
+        self.manage_prediction_synapse(valid_miner_infos, settings)
         
         score_dict = {key: health_score[key] * 0.3 + pool_events_score[key] * 0.3 + pool_metric_events_score[key] * 0.4 for key in valid_miner_infos.keys()}
 
