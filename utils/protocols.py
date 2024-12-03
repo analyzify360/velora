@@ -20,17 +20,34 @@ class PoolEventResponse(BaseModel):
     data: list[dict]
     overall_data_hash: str
 
-class SignalEventSynapse(BaseModel):
-    class_name: str = 'SignalEventSynapse'
+class PoolMetricSynapse(BaseModel):
+    class_name: str = 'PoolMetricSynapse'
     timestamp: int
     pool_address: str
 
-class SignalEventResponse(BaseModel):
-    class_name: str = 'SignalEventResponse'
+class PoolMetricResponse(BaseModel):
+    class_name: str = 'PoolMetricResponse'
     price: float = 0
-    liquidity: float = 0
-    volume: float = 0
+    liquidity_token0: float = 0
+    liquidity_token1: float = 0
+    volume_token0: float = 0
+    volume_token1: float = 0
+
+class TokenMetricSynapse(BaseModel):
+    class_name: str = 'TokenMetricSynapse'
+    timestamp: int
+    token_address: str
+
+class TokenMetricResponse(BaseModel):
+    class_name: str = 'TokenMetricResponse'
     
+    open_price: float = 0
+    close_price: float = 0
+    high_price: float = 0
+    low_price: float = 0
+    total_volume: float = 0
+    total_liquidity: float = 0
+
 class PredictionSynapse(BaseModel):
     class_name: str = 'PredictionSynapse'
     timestamp: int
@@ -44,8 +61,8 @@ class_dict = {
     'HealthCheckResponse': HealthCheckResponse,
     'PoolEventSynapse': PoolEventSynapse,
     'PoolEventResponse': PoolEventResponse,
-    'SignalEventSynapse': SignalEventSynapse,
-    'SignalEventResponse': SignalEventResponse,
+    'SignalEventSynapse': PoolMetricSynapse,
+    'SignalEventResponse': PoolMetricResponse,
     'PredictionSynapse': PredictionSynapse,
     'PredictionResponse': PredictionResponse,
 }

@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, inspect, insert, desc
+from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, Float, inspect, insert, desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from typing import Union, List, Dict
@@ -85,13 +85,15 @@ class CollectEventTable(BaseTable):
     amount0 = Column(String, nullable=False)  # U256 can be stored as String
     amount1 = Column(String, nullable=False)  # U256 can be stored as String
 
-class UniswapSignalsTable(BaseTable):
-    __tablename__ = 'uniswap_signals'
+class PoolMetricTable(BaseTable):
+    __tablename__ = 'pool_metrics'
     timestamp = Column(Integer, nullable=False, primary_key=True)
     pool_address = Column(String, nullable=False, primary_key=True)
-    price = Column(String)
-    liquidity = Column(String)
-    volume = Column(String)
+    price = Column(Float)
+    liquidity_token0 = Column(Float)
+    liquidity_token1 = Column(Float)
+    volume_token0 = Column(Float)
+    volume_token1 = Column(Float)
 
 class DBManager:
 
@@ -200,15 +202,16 @@ class DBManager:
             result = session.query(UniswapSignalsTable).filter_by(pool_address = pool_address).all()
             return result
             
-    def find_signal_timetable_pool_address(self, timestamp: int, pool_address: str):
+
+    def find_pool_metric_timetable_pool_address(self, timestamp: int, pool_address: str):
         with self.Session() as session:
-            print(f'Finding uniswap singal table by timetable {timestamp} and pool address {pool_address}')
-            result = session.query(UniswapSignalsTable).filter_by(timestamp = timestamp, pool_address = pool_address).all()
+            print(f'Finding uniswap metrics table by timetable {timestamp} and pool address {pool_address}')
+            result = session.query(PoolMetricTable).filter_by(timestamp = timestamp, pool_address = pool_address).all()
             if(len(result) == 0):
-                signal = {}
+                pool_metric = {}
             else:
-                signal = {'price': result[0].price, 'liquidity': result[0].liquidity, 'volume': result[0].volume}
-        return signal
+                pool_metric = {'price': result[0].price, 'liquidity_token0': result[0].liquidity_token0, 'liquidity_token1': result[0].liquidity_token1, 'volume_token0': result[0].volume_token0, 'volume_token1': result[0].volume_token1}
+        return pool_metric
     
     def fetch_pool_events(self, start_block: int, end_block: int):
         swap_events = self.fetch_swap_events(start_block, end_block)
