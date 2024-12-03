@@ -32,7 +32,22 @@ class PoolMetricResponse(BaseModel):
     liquidity_token1: float = 0
     volume_token0: float = 0
     volume_token1: float = 0
+
+class TokenMetricSynapse(BaseModel):
+    class_name: str = 'TokenMetricSynapse'
+    timestamp: int
+    token_address: str
+
+class TokenMetricResponse(BaseModel):
+    class_name: str = 'TokenMetricResponse'
     
+    open_price: float = 0
+    close_price: float = 0
+    high_price: float = 0
+    low_price: float = 0
+    total_volume: float = 0
+    total_liquidity: float = 0
+
 class PredictionSynapse(BaseModel):
     class_name: str = 'PredictionSynapse'
     timestamp: int
