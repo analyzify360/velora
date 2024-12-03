@@ -194,8 +194,13 @@ class DBManager:
         with self.Session() as session:
             session.query(TokenPairtable).update({TokenPairtable.completed: False})
             session.commit()
+    
+    def fetch_signals_pool_address(self, pool_address: str):
+        with self.Session() as session:
+            result = session.query(UniswapSignalsTable).filter_by(pool_address = pool_address).all()
+            return result
             
-    def find_signal(self, timestamp: int, pool_address: str):
+    def find_signal_timetable_pool_address(self, timestamp: int, pool_address: str):
         with self.Session() as session:
             print(f'Finding uniswap singal table by timetable {timestamp} and pool address {pool_address}')
             result = session.query(UniswapSignalsTable).filter_by(timestamp = timestamp, pool_address = pool_address).all()
