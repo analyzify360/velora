@@ -20,13 +20,13 @@ class PoolEventResponse(BaseModel):
     data: list[dict]
     overall_data_hash: str
 
-class PoolMetricEventSynapse(BaseModel):
-    class_name: str = 'PoolMetricEventSynapse'
+class PoolMetricSynapse(BaseModel):
+    class_name: str = 'PoolMetricSynapse'
     timestamp: int
     pool_address: str
 
-class PoolMetricEventResponse(BaseModel):
-    class_name: str = 'PoolMetricEventResponse'
+class PoolMetricResponse(BaseModel):
+    class_name: str = 'PoolMetricResponse'
     price: float = 0
     liquidity_token0: float = 0
     liquidity_token1: float = 0

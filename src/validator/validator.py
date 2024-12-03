@@ -37,7 +37,7 @@ from ._config import ValidatorSettings
 from utils.log import log
 from utils.protocols import (HealthCheckSynapse, HealthCheckResponse,
                              PoolEventSynapse, PoolEventResponse,
-                             SignalEventSynapse, SignalEventResponse,
+                             PoolMetricEventSynapse, PoolMetricEventResponse,
                              PredictionSynapse, PredictionResponse,
                              class_dict)
 from uniswap_fetcher_rs import UniswapFetcher
@@ -394,7 +394,7 @@ class VeloraValidator(Module):
             correct_count += okay
         return correct_count / ANSWER_CHECK_COUNT
 
-    def get_deviations(self, miner_prompt: SignalEventSynapse, miner_answer: SignalEventResponse):
+    def get_deviations(self, miner_prompt: PoolMetricEventSynapse, miner_answer: PoolMetricEventResponse):
         """
         Check if the miner answers are valid.
         
@@ -445,12 +445,12 @@ class VeloraValidator(Module):
 
         return accuracy_score
 
-    def get_signal_event_synapse(self, healthy_data: list[HealthCheckResponse]) -> list[SignalEventSynapse]:
+    def get_signal_event_synapse(self, healthy_data: list[HealthCheckResponse]) -> list[PoolMetricEventSynapse]:
         """
         Generate a prompt for the signal event check.
         
         Returns:
-            The list of SignalEventSynapse.
+            The list of PoolMetricEventSynapse.
         """
         synapses = []
         for miner_data in healthy_data:
@@ -461,7 +461,7 @@ class VeloraValidator(Module):
             timestamp = random_pick * 300 + START_TIMESTAMP
             pool_addr = random.choice(miner_data.pool_addresses)
             
-            synapses.append(SignalEventSynapse(pool_address=pool_addr,
+            synapses.append(PoolMetricEventSynapse(pool_address=pool_addr,
                                                timestamp=timestamp))
 
         return synapses
