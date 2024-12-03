@@ -10,7 +10,7 @@ from uniswap_fetcher_rs import UniswapFetcher
 
 from utils.protocols import (HealthCheckSynapse, HealthCheckResponse,
                              PoolEventSynapse, PoolEventResponse,
-                             SignalEventSynapse, SignalEventResponse,
+                             PoolMetricEventSynapse, PoolMetricEventResponse,
                              PredictionSynapse, PredictionSynapse)
 from db.db_manager import DBManager
 
@@ -54,13 +54,13 @@ class Miner(Module):
         return PoolEventResponse(data = pool_events_dict, overall_data_hash = hash_hex).json()
     
     @endpoint
-    def forwardSignalEventSynapse(self, synapse: dict):
-        synapse = SignalEventSynapse(**synapse)
+    def forwardPoolMetricEventSynapse(self, synapse: dict):
+        synapse = PoolMetricEventSynapse(**synapse)
         signal = self.db_manager.find_signal(synapse.timestamp, synapse.pool_address)
         print(f'signal found: {signal}')
-        print(f'signal jsonified: {SignalEventResponse(**signal).json()}')
+        print(f'signal jsonified: {PoolMetricEventResponse(**signal).json()}')
         
-        return SignalEventResponse(**signal).json()
+        return PoolMetricEventResponse(**signal).json()
     
     @endpoint
     def forwardPredictionSynapse(self, synapse: PredictionSynapse):
