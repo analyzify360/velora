@@ -7,12 +7,14 @@ import os
 import json
 import hashlib
 from uniswap_fetcher_rs import UniswapFetcher
+from typing import List
 
 from utils.protocols import (HealthCheckSynapse, HealthCheckResponse,
                              PoolEventSynapse, PoolEventResponse,
                              PoolMetricSynapse, PoolMetricResponse,
                              PredictionSynapse, PredictionSynapse,
-                             CurrentPoolMetricSynapse, CurrentPoolMetricResponse)
+                             CurrentPoolMetricSynapse, CurrentPoolMetricResponse,
+                             CurrentPoolMetric)
 from db.db_manager import DBManager
 
 class Miner(Module):
@@ -67,10 +69,18 @@ class Miner(Module):
         pass
     
     @endpoint
-    def forwardCurrentPoolMetricSynapse(self, synapse: dict):
-        print('forwardCurrnetPoolMetricSynapse called')
-        response = CurrentPoolMetricResponse().json()
-        return response
+    def forwardCurrentPoolMetricSynapse(self, synapse: CurrentPoolMetricSynapse):
+        synapse = CurrentPoolMetricSynapse(**synapse)
+        current_pool_metrics = self.db_manager.fetch_current_pool_metrics(synapse.page_limit, synapse.page_number, synapse.search_query, synapse.sort_by)
+        print(f'current_pool_metrics: {current_pool_metrics}')
+        data =  [CurrentPoolMetric(
+            pool_address=current_pool_metric['pool_address'],
+            liquidity_token0=current_pool_metric['liquidity_token0'],
+            liquidity_token1=current_pool_metric['liquidity_token1'],
+            volume_token0=current_pool_metric['volume_token0'],
+            volume_token1=current_pool_metric['volume_token1'],
+            ) for current_pool_metric in current_pool_metrics]
+        return CurrentPoolMetricResponse(data = data, overall_data_hash = "").json()
 
 
 if __name__ == "__main__":

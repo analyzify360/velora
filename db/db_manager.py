@@ -95,6 +95,15 @@ class PoolMetricTable(BaseTable):
     volume_token0 = Column(Float)
     volume_token1 = Column(Float)
 
+class CurrentPoolMetricTable(BaseTable):
+    __tablename__ = 'current_pool_metrics'
+    pool_address = Column(String, primary_key=True)
+    price = Column(Float)
+    liquidity_token0 = Column(Float)
+    liquidity_token1 = Column(Float)
+    volume_token0 = Column(Float)
+    volume_token1 = Column(Float)
+
 class DBManager:
 
     def __init__(self, url = get_postgres_url()) -> None:
@@ -249,3 +258,8 @@ class DBManager:
                 CollectEventTable.block_number <= end_block
             ).all()
         return events
+    
+    def fetch_current_pool_metrics(self, page_limit: int, page_number: int, search_query: str, sort_by: str):
+        with self.Session() as session:
+            pool_metrics = session.query(CurrentPoolMetricTable).filter(CurrentPoolMetricTable.pool_address.like(f'%{search_query}%')).limit(page_limit).offset(page_limit * (page_number - 1)).all()
+            return [pool_metric.to_dict() for pool_metric in pool_metrics]

@@ -58,9 +58,24 @@ class PredictionResponse(BaseModel):
 
 class CurrentPoolMetricSynapse(BaseModel):
     class_name: str = 'CurrentPoolMetricSynapse'
+    page_limit: int = 10
+    page_number: int = 1
+    search_query: str = ''
+    sort_by: str = 'timestamp'
 
+class CurrentPoolMetric(BaseModel):
+    pool_address: str
+    liquidity_token0: float
+    liquidity_token1: float
+    volume_token0: float
+    volume_token1: float
 class CurrentPoolMetricResponse(BaseModel):
     class_name: str = 'CurrentPoolMetricResponse'
+    data: list[CurrentPoolMetric]
+    overall_data_hash: str
+    
+
+
 
 class_dict = {
     'HealthCheckSynapse': HealthCheckSynapse,
