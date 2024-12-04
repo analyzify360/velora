@@ -56,6 +56,12 @@ class PredictionResponse(BaseModel):
     class_name: str = 'PredictionResponse'
     prices: list[float]
 
+class CurrentPoolMetricSynapse(BaseModel):
+    class_name: str = 'CurrentPoolMetricSynapse'
+
+class CurrentPoolMetricResponse(BaseModel):
+    class_name: str = 'CurrentPoolMetricResponse'
+
 class_dict = {
     'HealthCheckSynapse': HealthCheckSynapse,
     'HealthCheckResponse': HealthCheckResponse,
@@ -65,4 +71,6 @@ class_dict = {
     'SignalEventResponse': PoolMetricResponse,
     'PredictionSynapse': PredictionSynapse,
     'PredictionResponse': PredictionResponse,
+    'CurrentPoolMetricSynapse': CurrentPoolMetricSynapse,
+    'CurrentPoolMetricResponse': CurrentPoolMetricResponse
 }
