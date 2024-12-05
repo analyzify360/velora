@@ -77,8 +77,25 @@ class CurrentPoolMetricResponse(BaseModel):
     class_name: str = 'CurrentPoolMetricResponse'
     data: list[CurrentPoolMetric]
     overall_data_hash: str
-    
 
+class PoolEvent(BaseModel):
+    timestamp: int
+    token0_symbol: str
+    token1_symbol: str
+    amount0: str
+    amount1: str
+    event_type: str
+    transaction_hash: str
+
+class RecentPoolEventSynapse(BaseModel):
+    class_name: str = 'RecentPoolEventSynapse'
+    page_limit: int = 10
+    filter_by: str = 'all'
+
+class RecentPoolEventResponse(BaseModel):
+    class_name: str = 'RecentPoolEventResponse'
+    data: list[PoolEvent]
+    overall_data_hash: str
 
 
 class_dict = {
@@ -91,5 +108,7 @@ class_dict = {
     'PredictionSynapse': PredictionSynapse,
     'PredictionResponse': PredictionResponse,
     'CurrentPoolMetricSynapse': CurrentPoolMetricSynapse,
-    'CurrentPoolMetricResponse': CurrentPoolMetricResponse
+    'CurrentPoolMetricResponse': CurrentPoolMetricResponse,
+    'RecentPoolEventSynapse': RecentPoolEventSynapse,
+    'RecentPoolEventResponse': RecentPoolEventResponse,
 }

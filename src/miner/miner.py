@@ -9,12 +9,16 @@ import hashlib
 from uniswap_fetcher_rs import UniswapFetcher
 from typing import List
 
-from utils.protocols import (HealthCheckSynapse, HealthCheckResponse,
-                             PoolEventSynapse, PoolEventResponse,
-                             PoolMetricSynapse, PoolMetricResponse,
-                             PredictionSynapse, PredictionSynapse,
-                             CurrentPoolMetricSynapse, CurrentPoolMetricResponse,
-                             CurrentPoolMetric)
+from utils.helpers import unsigned_hex_to_int, signed_hex_to_int
+from utils.protocols import (
+    HealthCheckSynapse, HealthCheckResponse,
+    PoolEventSynapse, PoolEventResponse,
+    PoolMetricSynapse, PoolMetricResponse,
+    PredictionSynapse, PredictionSynapse,
+    CurrentPoolMetricSynapse, CurrentPoolMetricResponse,
+    CurrentPoolMetric, RecentPoolEventSynapse,
+    RecentPoolEventResponse, PoolEvent
+    )
 from db.db_manager import DBManager
 
 class Miner(Module):
@@ -84,6 +88,25 @@ class Miner(Module):
             token1_symbol=token1_symbol,
             ) for current_pool_metric, token0_symbol, token1_symbol, fee in current_pool_metrics]
         return CurrentPoolMetricResponse(data = data, overall_data_hash = "").json()
+    
+    @endpoint
+    def forwardRecentPoolEventSynapse(self, synapse: RecentPoolEventSynapse):
+        synapse = RecentPoolEventSynapse(**synapse)
+        pool_events = self.db_manager.fetch_recent_pool_events(synapse.page_limit, synapse.filter_by)
+        pool_events_dict = [
+            PoolEvent(
+                timestamp=timestamp,
+                token0_symbol=token0_symbol,
+                token1_symbol=token1_symbol,
+                amount0=amount0,
+                amount1=amount1,
+                event_type=event_type,
+                transaction_hash=transaction_hash
+            )
+            for timestamp, token0_symbol, token1_symbol, amount0, amount1, transaction_hash, event_type in pool_events]
+        print(f'pool_events_dict: {pool_events_dict}')
+        return RecentPoolEventResponse(data = pool_events_dict, overall_data_hash = "").json()
+    
 
 
 if __name__ == "__main__":

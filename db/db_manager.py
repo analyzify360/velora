@@ -37,6 +37,7 @@ class SwapEventTable(BaseTable):
     transaction_hash = Column(String, nullable=False)
     pool_address = Column(String, nullable=False)
     block_number = Column(Integer, nullable=False)
+    timestamp = Column(Integer, nullable=False)
     sender = Column(String, nullable=False)
     to = Column(String, nullable=False)
     amount0 = Column(String, nullable=False)  # I256 can be stored as String
@@ -51,6 +52,7 @@ class MintEventTable(BaseTable):
     transaction_hash = Column(String, nullable=False)
     pool_address = Column(String, nullable=False)
     block_number = Column(Integer, nullable=False)
+    timestamp = Column(Integer, nullable=False)
     sender = Column(String, nullable=False)
     owner = Column(String, nullable=False)
     tick_lower = Column(Integer, nullable=False)  # int24 can be stored as Integer
@@ -65,6 +67,7 @@ class BurnEventTable(BaseTable):
     transaction_hash = Column(String, nullable=False)
     pool_address = Column(String, nullable=False)
     block_number = Column(Integer, nullable=False)
+    timestamp = Column(Integer, nullable=False)
     owner = Column(String, nullable=False)
     tick_lower = Column(Integer, nullable=False)  # int24 can be stored as Integer
     tick_upper = Column(Integer, nullable=False)  # int24 can be stored as Integer
@@ -78,6 +81,7 @@ class CollectEventTable(BaseTable):
     transaction_hash = Column(String, nullable=False)
     pool_address = Column(String, nullable=False)
     block_number = Column(Integer, nullable=False)
+    timestamp = Column(Integer, nullable=False)
     owner = Column(String, nullable=False)
     recipient = Column(String, nullable=False)
     tick_lower = Column(Integer, nullable=False)  # int24 can be stored as Integer
@@ -291,3 +295,44 @@ class DBManager:
                 .all()
             )
             return pool_metrics
+    
+    def fetch_recent_pool_events(self, page_limit: int, filter_by: str) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+        with self.Session() as session:
+            TokenPair = aliased(TokenPairTable)
+            Token0 = aliased(TokenTable)
+            Token1 = aliased(TokenTable)
+            all_events = []
+            if filter_by == 'swap' or filter_by == 'all':
+                swap_events = (
+                    session.query(SwapEventTable.timestamp, Token0.symbol.label('token0_symbol'), Token1.symbol.label('token1_symbol'), SwapEventTable.amount0, SwapEventTable.amount1, SwapEventTable.transaction_hash)
+                    .join(TokenPair, SwapEventTable.pool_address == TokenPair.pool)
+                    .join(Token0, TokenPair.token0 == Token0.address)
+                    .join(Token1, TokenPair.token1 == Token1.address)
+                    .order_by(SwapEventTable.id.desc()).limit(page_limit).all()
+                )
+                swap_events = [tuple(list(event) + ['swap', ]) for event in swap_events]
+                all_events.extend(swap_events)
+            
+            if filter_by == 'mint' or filter_by == 'all':
+                mint_events = (
+                    session.query(MintEventTable.timestamp, Token0.symbol.label('token0_symbol'), Token1.symbol.label('token1_symbol'), MintEventTable.amount0, MintEventTable.amount1, MintEventTable.transaction_hash)
+                    .join(TokenPair, MintEventTable.pool_address == TokenPair.pool)
+                    .join(Token0, TokenPair.token0 == Token0.address)
+                    .join(Token1, TokenPair.token1 == Token1.address)
+                    .order_by(MintEventTable.id.desc()).limit(page_limit).all()
+                )
+                mint_events = [tuple(list(event) + ['mint', ]) for event in mint_events]
+                all_events.extend(mint_events)
+            
+            if filter_by == 'burn' or filter_by == 'all':
+                burn_events = (
+                    session.query(BurnEventTable.timestamp, Token0.symbol.label('token0_symbol'), Token1.symbol.label('token1_symbol'), BurnEventTable.amount0, BurnEventTable.amount1, BurnEventTable.transaction_hash)
+                    .join(TokenPair, BurnEventTable.pool_address == TokenPair.pool)
+                    .join(Token0, TokenPair.token0 == Token0.address)
+                    .join(Token1, TokenPair.token1 == Token1.address)
+                    .order_by(BurnEventTable.id.desc()).limit(page_limit).all()
+                )
+                burn_events = [tuple(list(event) + ['burn', ]) for event in burn_events]
+                all_events.extend(burn_events)
+            all_events.sort(key=lambda event: event[0], reverse=True)
+            return all_events
