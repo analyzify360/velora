@@ -315,7 +315,7 @@ class DBManager:
             
             if filter_by == 'mint' or filter_by == 'all':
                 mint_events = (
-                    session.query(MintEventTable.timestamp, Token0.symbol.label('token0_symbol'), Token1.symbol.label('token1_symbol'), MintEventTable.amount0, MintEventTable.amount1, MintEventTable.transaction_hash)
+                    session.query(MintEventTable.timestamp, Token0.symbol.label('token0_symbol'), Token1.symbol.label('token1_symbol'), Token0.decimals.label('token0_decimals'), Token1.decimals.label('token1_decimals'), MintEventTable.amount0, MintEventTable.amount1, MintEventTable.transaction_hash)
                     .join(TokenPair, MintEventTable.pool_address == TokenPair.pool)
                     .join(Token0, TokenPair.token0 == Token0.address)
                     .join(Token1, TokenPair.token1 == Token1.address)
@@ -326,7 +326,7 @@ class DBManager:
             
             if filter_by == 'burn' or filter_by == 'all':
                 burn_events = (
-                    session.query(BurnEventTable.timestamp, Token0.symbol.label('token0_symbol'), Token1.symbol.label('token1_symbol'), BurnEventTable.amount0, BurnEventTable.amount1, BurnEventTable.transaction_hash)
+                    session.query(BurnEventTable.timestamp, Token0.symbol.label('token0_symbol'), Token1.symbol.label('token1_symbol'), Token0.decimals.label('token0_decimals'), Token1.decimals.label('token1_decimals'), BurnEventTable.amount0, BurnEventTable.amount1, BurnEventTable.transaction_hash)
                     .join(TokenPair, BurnEventTable.pool_address == TokenPair.pool)
                     .join(Token0, TokenPair.token0 == Token0.address)
                     .join(Token1, TokenPair.token1 == Token1.address)

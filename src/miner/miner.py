@@ -99,8 +99,8 @@ class Miner(Module):
                 timestamp=timestamp,
                 token0_symbol=token0_symbol,
                 token1_symbol=token1_symbol,
-                amount0=float(signed_hex_to_int(amount0)) / token0_decimals if event_type == 'swap' else float(unsigned_hex_to_int(amount0)) / token0_decimals,
-                amount1=float(signed_hex_to_int(amount1)) / token1_decimals if event_type == 'swap' else float(unsigned_hex_to_int(amount1)) / token1_decimals,
+                amount0=float(signed_hex_to_int(amount0)) / 10 ** token0_decimals if event_type == 'swap' else float(unsigned_hex_to_int(amount0)) / 10 ** token0_decimals,
+                amount1=float(signed_hex_to_int(amount1)) / 10 ** token1_decimals if event_type == 'swap' else float(unsigned_hex_to_int(amount1)) / 10 ** token1_decimals,
                 event_type=event_type,
                 transaction_hash=transaction_hash
             )

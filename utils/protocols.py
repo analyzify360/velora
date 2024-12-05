@@ -82,8 +82,8 @@ class PoolEvent(BaseModel):
     timestamp: int
     token0_symbol: str
     token1_symbol: str
-    amount0: int
-    amount1: int
+    amount0: float
+    amount1: float
     event_type: str
     transaction_hash: str
 
