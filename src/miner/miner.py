@@ -93,18 +93,19 @@ class Miner(Module):
     def forwardRecentPoolEventSynapse(self, synapse: RecentPoolEventSynapse):
         synapse = RecentPoolEventSynapse(**synapse)
         pool_events = self.db_manager.fetch_recent_pool_events(synapse.page_limit, synapse.filter_by)
+        print(f'pool_events: {pool_events}')
         pool_events_dict = [
             PoolEvent(
                 timestamp=timestamp,
                 token0_symbol=token0_symbol,
                 token1_symbol=token1_symbol,
-                amount0=amount0,
-                amount1=amount1,
+                amount0=float(signed_hex_to_int(amount0)) / token0_decimals if event_type == 'swap' else float(unsigned_hex_to_int(amount0)) / token0_decimals,
+                amount1=float(signed_hex_to_int(amount1)) / token1_decimals if event_type == 'swap' else float(unsigned_hex_to_int(amount1)) / token1_decimals,
                 event_type=event_type,
                 transaction_hash=transaction_hash
             )
-            for timestamp, token0_symbol, token1_symbol, amount0, amount1, transaction_hash, event_type in pool_events]
-        print(f'pool_events_dict: {pool_events_dict}')
+            for timestamp, token0_symbol, token1_symbol, token0_decimals, token1_decimals, amount0, amount1, transaction_hash, event_type in pool_events]
+        # print(f'pool_events_dict: {pool_events_dict}')
         return RecentPoolEventResponse(data = pool_events_dict, overall_data_hash = "").json()
     
 

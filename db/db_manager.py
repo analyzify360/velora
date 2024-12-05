@@ -304,7 +304,7 @@ class DBManager:
             all_events = []
             if filter_by == 'swap' or filter_by == 'all':
                 swap_events = (
-                    session.query(SwapEventTable.timestamp, Token0.symbol.label('token0_symbol'), Token1.symbol.label('token1_symbol'), SwapEventTable.amount0, SwapEventTable.amount1, SwapEventTable.transaction_hash)
+                    session.query(SwapEventTable.timestamp, Token0.symbol.label('token0_symbol'), Token1.symbol.label('token1_symbol'), Token0.decimals.label('token0_decimals'), Token1.decimals.label('token1_decimals'), SwapEventTable.amount0, SwapEventTable.amount1, SwapEventTable.transaction_hash)
                     .join(TokenPair, SwapEventTable.pool_address == TokenPair.pool)
                     .join(Token0, TokenPair.token0 == Token0.address)
                     .join(Token1, TokenPair.token1 == Token1.address)
