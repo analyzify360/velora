@@ -1,6 +1,6 @@
-from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, Float, inspect, insert, desc
+from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, Float, inspect, insert, desc, asc, desc
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, aliased
 from typing import Union, List, Dict
 from utils.config import get_postgres_url
 
@@ -21,7 +21,7 @@ class Timetable(BaseTable):
     end = Column(Date)
     completed = Column(Boolean)
 
-class TokenPairtable(BaseTable):
+class TokenPairTable(BaseTable):
     __tablename__ = 'token_pairs'
     id = Column(Integer, primary_key=True, autoincrement=True)
     token0 = Column(String, nullable=False)
@@ -104,6 +104,14 @@ class CurrentPoolMetricTable(BaseTable):
     volume_token0 = Column(Float)
     volume_token1 = Column(Float)
 
+class TokenTable(Base):
+    __tablename__ = "tokens"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    address = Column(String, nullable=False)
+    symbol = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    decimals = Column(Integer, nullable=False)
+
 class DBManager:
 
     def __init__(self, url = get_postgres_url()) -> None:
@@ -169,7 +177,7 @@ class DBManager:
         """Add token pairs to the corresponding table."""
         
         insert_values = [
-            TokenPairtable(token0 = token_pair['token0'], token1 = token_pair['token1'], fee = token_pair['fee'], pool = token_pair['pool'], block_number = token_pair['block_number'], completed = False)
+            TokenPairTable(token0 = token_pair['token0'], token1 = token_pair['token1'], fee = token_pair['fee'], pool = token_pair['pool'], block_number = token_pair['block_number'], completed = False)
             for token_pair in token_pairs
         ]
         
@@ -180,22 +188,22 @@ class DBManager:
     def fetch_token_pairs(self):
         """Fetch all token pairs from the corresponding table."""
         with self.Session() as session:
-            token_pairs = session.query(TokenPairtable).all()
+            token_pairs = session.query(TokenPairTable).all()
             return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed, 'pool_address': row.pool} for row in token_pairs]
 
     def fetch_incompleted_token_pairs(self) -> List[Dict[str, Union[str, int, bool]]]:
         """Fetch all incompleted token pairs from the corresponding table."""
         with self.Session() as session:
-            incompleted_token_pairs = session.query(TokenPairtable).filter_by(completed=False).all()
+            incompleted_token_pairs = session.query(TokenPairTable).filter_by(completed=False).all()
             return [{"token0": row.token0, "token1": row.token1, "fee": row.fee, "completed": row.completed} for row in incompleted_token_pairs]
 
     def mark_token_pairs_as_complete(self, token_pairs: List[tuple]) -> bool:
         """Mark a token pair as complete."""
         with self.Session() as session:
             for token_pair in token_pairs:
-                record = session.query(TokenPairtable).filter_by(token0=token_pair[0], token1=token_pair[1], fee=token_pair[2]).first()
+                record = session.query(TokenPairTable).filter_by(token0=token_pair[0], token1=token_pair[1], fee=token_pair[2]).first()
                 if record:
-                    session.query(TokenPairtable).filter_by(token0=token_pair[0], token1=token_pair[1], fee=token_pair[2]).update({TokenPairtable.completed: True})
+                    session.query(TokenPairTable).filter_by(token0=token_pair[0], token1=token_pair[1], fee=token_pair[2]).update({TokenPairTable.completed: True})
                 else:
                     return False
             session.commit()
@@ -203,7 +211,7 @@ class DBManager:
     def reset_token_pairs(self):
         """Reset the token pairs completed state"""
         with self.Session() as session:
-            session.query(TokenPairtable).update({TokenPairtable.completed: False})
+            session.query(TokenPairTable).update({TokenPairTable.completed: False})
             session.commit()
     
     def fetch_signals_pool_address(self, pool_address: str):
@@ -259,7 +267,27 @@ class DBManager:
             ).all()
         return events
     
-    def fetch_current_pool_metrics(self, page_limit: int, page_number: int, search_query: str, sort_by: str):
+    def fetch_current_pool_metrics(self, page_limit: int, page_number: int, search_query: str, sort_by: str, sort_order: str):
         with self.Session() as session:
-            pool_metrics = session.query(CurrentPoolMetricTable).filter(CurrentPoolMetricTable.pool_address.like(f'%{search_query}%')).limit(page_limit).offset(page_limit * (page_number - 1)).all()
-            return [pool_metric.to_dict() for pool_metric in pool_metrics]
+            order_method = desc if sort_order == 'desc' else asc
+            Token0 = aliased(TokenTable)
+            Token1 = aliased(TokenTable)
+            TokenPair = aliased(TokenPairTable)
+            pool_metrics = (
+                session.query(
+                    CurrentPoolMetricTable,
+                    Token0.symbol.label('token0_symbol'),
+                    Token1.symbol.label('token1_symbol'),
+                    TokenPair.fee.label('fee'),
+                )
+                .filter(CurrentPoolMetricTable.pool_address.like(f'%{search_query}%'))
+                .join(TokenPair, CurrentPoolMetricTable.pool_address == TokenPair.pool)
+                .join(Token0, TokenPair.token0 == Token0.address)
+                .join(Token1, TokenPair.token1 == Token1.address)
+                .order_by(order_method(getattr(CurrentPoolMetricTable, sort_by)))
+                .limit(page_limit)
+                .offset(page_limit * (page_number - 1))
+                
+                .all()
+            )
+            return pool_metrics

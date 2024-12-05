@@ -61,7 +61,8 @@ class CurrentPoolMetricSynapse(BaseModel):
     page_limit: int = 10
     page_number: int = 1
     search_query: str = ''
-    sort_by: str = 'timestamp'
+    sort_by: str = ''
+    sort_order: str = 'desc'
 
 class CurrentPoolMetric(BaseModel):
     pool_address: str
@@ -69,6 +70,9 @@ class CurrentPoolMetric(BaseModel):
     liquidity_token1: float
     volume_token0: float
     volume_token1: float
+    token0_symbol: str
+    token1_symbol: str
+    fee: int
 class CurrentPoolMetricResponse(BaseModel):
     class_name: str = 'CurrentPoolMetricResponse'
     data: list[CurrentPoolMetric]
