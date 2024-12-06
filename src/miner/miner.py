@@ -17,7 +17,9 @@ from utils.protocols import (
     PredictionSynapse, PredictionSynapse,
     CurrentPoolMetricSynapse, CurrentPoolMetricResponse,
     CurrentPoolMetric, RecentPoolEventSynapse,
-    RecentPoolEventResponse, PoolEvent
+    RecentPoolEventResponse, PoolEvent,
+    CurrentTokenMetricSynapse, CurrentTokenMetricResponse
+    CurrentTokenMetric,
     )
 from db.db_manager import DBManager
 
@@ -110,6 +112,8 @@ class Miner(Module):
         # print(f'pool_events_dict: {pool_events_dict}')
         return RecentPoolEventResponse(data = pool_events_dict, overall_data_hash = "").json()
     
+    def forwardCurrentTokenMetricSynapse(self, synapse: ChildProcessError):
+        pass
 
 
 if __name__ == "__main__":
