@@ -108,6 +108,13 @@ class CurrentPoolMetricTable(BaseTable):
     volume_token0 = Column(Float)
     volume_token1 = Column(Float)
 
+class CurrentTokenMetricTable(Base):
+    __tablename__ = "current_token_metrics"
+    token_address = Column(String, primary_key=True)
+    price = Column(Float)
+    total_liquidity = Column(Float)
+    total_volume = Column(Float)
+
 class TokenTable(Base):
     __tablename__ = "tokens"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -345,4 +352,20 @@ class DBManager:
             all_events.sort(key=lambda event: event[0], reverse=True)
             return all_events
     
-    def fetch_current_token_metrics(self, page_limit:int, page_number: int, search_query: str, )
+    def fetch_current_token_metrics(self, page_limit:int, page_number: int, search_query: str, sort_by: str) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+        with self.Session() as session:
+            sort_by = sort_by if sort_by in ['price', 'total_volume', 'total_liquidity'] else 'total_volume'
+            total_token_count = session.query(CurrentTokenMetricTable).filter(CurrentTokenMetricTable.pool_address.like(f'%{search_query}%')).count()
+            token_metrics = (
+                session.query(
+                    CurrentTokenMetricTable,
+                    TokenTable.symbol,
+                )
+                .filter(CurrentTokenMetricTable.token_address.like(f'%{search_query}%'))
+                .join(TokenTable, CurrentTokenMetricTable.token_address == TokenTable.address)
+                .order_by(getattr(CurrentTokenMetricTable, sort_by))
+                .limit(page_limit)
+                .offset(page_limit * (page_number - 1))
+                .all()
+            )
+            return {"token_metrics": token_metrics, "total_token_count": total_token_count}
