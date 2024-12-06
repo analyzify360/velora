@@ -307,8 +307,8 @@ class VeloraValidator(Module):
                 )
             )
             response = json.loads(response)
-            # print(f'Response from miner: {response}')
             miner_answer['data'] = class_dict[response['class_name']](**response)
+                
             process_time = datetime.now() - current_time
             miner_answer["process_time"] = process_time
 
@@ -330,8 +330,6 @@ class VeloraValidator(Module):
         if not answers:
             log("No miner managed to give an answer")
             return None
-        
-        # print(f'miner answers: {answers}')
         
         return answers
         
@@ -612,7 +610,7 @@ class VeloraValidator(Module):
         score_dict = {direction_score[key] * 0.5 + miner_deviation[key] * 0.5 for key in direction_score.keys()}
         return score_dict
     
-    async def manage_prediction_synapse(self, miner_infos: dict, settings: ValidatorSettings):
+    def manage_prediction_synapse(self, miner_infos: dict, settings: ValidatorSettings):
         """
         Manages the timeline of prediction synapses.
         """

@@ -61,8 +61,8 @@ class_dict = {
     'HealthCheckResponse': HealthCheckResponse,
     'PoolEventSynapse': PoolEventSynapse,
     'PoolEventResponse': PoolEventResponse,
-    'SignalEventSynapse': PoolMetricSynapse,
-    'SignalEventResponse': PoolMetricResponse,
+    'PoolMetricSynapse': PoolMetricSynapse,
+    'PoolMetricResponse': PoolMetricResponse,
     'PredictionSynapse': PredictionSynapse,
     'PredictionResponse': PredictionResponse,
 }
