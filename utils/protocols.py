@@ -58,11 +58,14 @@ class PredictionResponse(BaseModel):
 
 class CurrentPoolMetricSynapse(BaseModel):
     class_name: str = 'CurrentPoolMetricSynapse'
-    page_limit: int = 10
-    page_number: int = 1
-    search_query: str = ''
-    sort_by: str = ''
-    sort_order: str = 'desc'
+    page_limit: int
+    page_number: int
+    fee_tier: int
+    liquidity_threshold: float
+    volume_threshold: float
+    search_query: str
+    sort_by: str
+    sort_order: str
 
 class CurrentPoolMetric(BaseModel):
     pool_address: str
@@ -77,6 +80,7 @@ class CurrentPoolMetricResponse(BaseModel):
     class_name: str = 'CurrentPoolMetricResponse'
     data: list[CurrentPoolMetric]
     overall_data_hash: str
+    total_pool_count: int
 
 class PoolEvent(BaseModel):
     timestamp: int
@@ -97,6 +101,27 @@ class RecentPoolEventResponse(BaseModel):
     data: list[PoolEvent]
     overall_data_hash: str
 
+class CurrentTokenMetricSynapse(BaseModel):
+    class_name: str = 'CurrentTokenMetricSynapse'
+    page_limit: int
+    page_number: int
+    search_query: str
+    sort_by: str
+
+class CurrentTokenMetric(BaseModel):
+    token_address: str
+    open_price: float
+    close_price: float
+    high_price: float
+    low_price: float
+    total_volume: float
+    total_liquidity: float
+
+class CurrentTokenMetricResponse(BaseModel):
+    class_name: str = 'CurrentTokenMetricResponse'
+    data: list[CurrentTokenMetric]
+    total_token_count: int
+
 
 class_dict = {
     'HealthCheckSynapse': HealthCheckSynapse,
@@ -111,4 +136,6 @@ class_dict = {
     'CurrentPoolMetricResponse': CurrentPoolMetricResponse,
     'RecentPoolEventSynapse': RecentPoolEventSynapse,
     'RecentPoolEventResponse': RecentPoolEventResponse,
+    'CurrentTokenMetricSynapse': CurrentTokenMetricSynapse,
+    'CurrentTokenMetricResponse': CurrentTokenMetricResponse
 }

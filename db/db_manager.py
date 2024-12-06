@@ -271,12 +271,21 @@ class DBManager:
             ).all()
         return events
     
-    def fetch_current_pool_metrics(self, page_limit: int, page_number: int, search_query: str, sort_by: str, sort_order: str):
+    def fetch_current_pool_metrics(
+        self,
+        page_limit: int, 
+        page_number: int, 
+        search_query: str, 
+        sort_by: str, 
+        sort_order: str
+    ) -> Dict[str, List[Dict[str, Union[str, int]]]]:
         with self.Session() as session:
+            sort_by = sort_by if sort_by in ['liquidity_token0', 'liquidity_token1', 'volume_token0', 'volume_token1', 'timestamp'] else 'liquidity_token0'
             order_method = desc if sort_order == 'desc' else asc
             Token0 = aliased(TokenTable)
             Token1 = aliased(TokenTable)
             TokenPair = aliased(TokenPairTable)
+            total_pool_count = session.query(CurrentPoolMetricTable).filter(CurrentPoolMetricTable.pool_address.like(f'%{search_query}%')).count()
             pool_metrics = (
                 session.query(
                     CurrentPoolMetricTable,
@@ -291,10 +300,9 @@ class DBManager:
                 .order_by(order_method(getattr(CurrentPoolMetricTable, sort_by)))
                 .limit(page_limit)
                 .offset(page_limit * (page_number - 1))
-                
                 .all()
             )
-            return pool_metrics
+            return {"pool_metrics": pool_metrics, "total_pool_count": total_pool_count}
     
     def fetch_recent_pool_events(self, page_limit: int, filter_by: str) -> Dict[str, List[Dict[str, Union[str, int]]]]:
         with self.Session() as session:

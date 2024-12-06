@@ -75,8 +75,10 @@ class Miner(Module):
     @endpoint
     def forwardCurrentPoolMetricSynapse(self, synapse: CurrentPoolMetricSynapse):
         synapse = CurrentPoolMetricSynapse(**synapse)
-        current_pool_metrics = self.db_manager.fetch_current_pool_metrics(synapse.page_limit, synapse.page_number, synapse.search_query, synapse.sort_by, synapse.sort_order)
-        print(f'current_pool_metrics: {current_pool_metrics}')
+        db_data = self.db_manager.fetch_current_pool_metrics(synapse.page_limit, synapse.page_number, synapse.search_query, synapse.sort_by, synapse.sort_order)
+        pool_metrics = db_data['pool_metrics']
+        total_pool_count = db_data['total_pool_count']
+        print(f'current_pool_metrics: {pool_metrics}')
         data =  [CurrentPoolMetric(
             pool_address=current_pool_metric.pool_address,
             liquidity_token0=current_pool_metric.liquidity_token0,
@@ -86,8 +88,8 @@ class Miner(Module):
             fee=fee,
             token0_symbol=token0_symbol,
             token1_symbol=token1_symbol,
-            ) for current_pool_metric, token0_symbol, token1_symbol, fee in current_pool_metrics]
-        return CurrentPoolMetricResponse(data = data, overall_data_hash = "").json()
+            ) for current_pool_metric, token0_symbol, token1_symbol, fee in pool_metrics]
+        return CurrentPoolMetricResponse(data = data, overall_data_hash = "", total_pool_count=total_pool_count).json()
     
     @endpoint
     def forwardRecentPoolEventSynapse(self, synapse: RecentPoolEventSynapse):
