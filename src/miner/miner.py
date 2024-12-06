@@ -120,10 +120,8 @@ class Miner(Module):
         
         data = [CurrentTokenMetric(
             token_address=token_metric.token_address,
-            open_price=token_metric.open_price,
-            close_price=token_metric.close_price,
-            high_price=token_metric.high_price,
-            low_price=token_metric.low_price,
+            symbol=token_metric.symbol,
+            price=token_metric.price,
             total_volume=token_metric.total_volume,
             total_liquidity=token_metric.total_liquidity
             ) for token_metric in token_metrics]

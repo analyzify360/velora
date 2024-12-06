@@ -110,10 +110,8 @@ class CurrentTokenMetricSynapse(BaseModel):
 
 class CurrentTokenMetric(BaseModel):
     token_address: str
-    open_price: float
-    close_price: float
-    high_price: float
-    low_price: float
+    symbol: str
+    price: float
     total_volume: float
     total_liquidity: float
 
