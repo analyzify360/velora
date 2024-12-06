@@ -84,6 +84,7 @@ class CurrentPoolMetricResponse(BaseModel):
 
 class PoolEvent(BaseModel):
     timestamp: int
+    pool_address: str
     token0_symbol: str
     token1_symbol: str
     amount0: float

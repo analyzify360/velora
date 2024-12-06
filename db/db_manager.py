@@ -319,7 +319,17 @@ class DBManager:
             all_events = []
             if filter_by == 'swap' or filter_by == 'all':
                 swap_events = (
-                    session.query(SwapEventTable.timestamp, Token0.symbol.label('token0_symbol'), Token1.symbol.label('token1_symbol'), Token0.decimals.label('token0_decimals'), Token1.decimals.label('token1_decimals'), SwapEventTable.amount0, SwapEventTable.amount1, SwapEventTable.transaction_hash)
+                    session.query(
+                        SwapEventTable.timestamp, 
+                        SwapEventTable.pool_address,
+                        Token0.symbol.label('token0_symbol'), 
+                        Token1.symbol.label('token1_symbol'), 
+                        Token0.decimals.label('token0_decimals'), 
+                        Token1.decimals.label('token1_decimals'), 
+                        SwapEventTable.amount0, 
+                        SwapEventTable.amount1, 
+                        SwapEventTable.transaction_hash
+                    )
                     .join(TokenPair, SwapEventTable.pool_address == TokenPair.pool)
                     .join(Token0, TokenPair.token0 == Token0.address)
                     .join(Token1, TokenPair.token1 == Token1.address)
@@ -330,7 +340,17 @@ class DBManager:
             
             if filter_by == 'mint' or filter_by == 'all':
                 mint_events = (
-                    session.query(MintEventTable.timestamp, Token0.symbol.label('token0_symbol'), Token1.symbol.label('token1_symbol'), Token0.decimals.label('token0_decimals'), Token1.decimals.label('token1_decimals'), MintEventTable.amount0, MintEventTable.amount1, MintEventTable.transaction_hash)
+                    session.query(
+                        MintEventTable.timestamp, 
+                        MintEventTable.pool_address,
+                        Token0.symbol.label('token0_symbol'),
+                        Token1.symbol.label('token1_symbol'), 
+                        Token0.decimals.label('token0_decimals'), 
+                        Token1.decimals.label('token1_decimals'), 
+                        MintEventTable.amount0, 
+                        MintEventTable.amount1, 
+                        MintEventTable.transaction_hash
+                    )
                     .join(TokenPair, MintEventTable.pool_address == TokenPair.pool)
                     .join(Token0, TokenPair.token0 == Token0.address)
                     .join(Token1, TokenPair.token1 == Token1.address)
@@ -341,7 +361,16 @@ class DBManager:
             
             if filter_by == 'burn' or filter_by == 'all':
                 burn_events = (
-                    session.query(BurnEventTable.timestamp, Token0.symbol.label('token0_symbol'), Token1.symbol.label('token1_symbol'), Token0.decimals.label('token0_decimals'), Token1.decimals.label('token1_decimals'), BurnEventTable.amount0, BurnEventTable.amount1, BurnEventTable.transaction_hash)
+                    session.query(
+                        BurnEventTable.timestamp, 
+                        BurnEventTable.pool_address,
+                        Token0.symbol.label('token0_symbol'), 
+                        Token1.symbol.label('token1_symbol'), 
+                        Token0.decimals.label('token0_decimals'), 
+                        Token1.decimals.label('token1_decimals'), 
+                        BurnEventTable.amount0, 
+                        BurnEventTable.amount1, 
+                        BurnEventTable.transaction_hash)
                     .join(TokenPair, BurnEventTable.pool_address == TokenPair.pool)
                     .join(Token0, TokenPair.token0 == Token0.address)
                     .join(Token1, TokenPair.token1 == Token1.address)
@@ -355,15 +384,18 @@ class DBManager:
     def fetch_current_token_metrics(self, page_limit:int, page_number: int, search_query: str, sort_by: str) -> Dict[str, List[Dict[str, Union[str, int]]]]:
         with self.Session() as session:
             sort_by = sort_by if sort_by in ['price', 'total_volume', 'total_liquidity'] else 'total_volume'
-            total_token_count = session.query(CurrentTokenMetricTable).filter(CurrentTokenMetricTable.pool_address.like(f'%{search_query}%')).count()
+            total_token_count = session.query(CurrentTokenMetricTable).filter(CurrentTokenMetricTable.token_address.like(f'%{search_query}%')).count()
             token_metrics = (
                 session.query(
-                    CurrentTokenMetricTable,
+                    CurrentTokenMetricTable.token_address,
+                    CurrentTokenMetricTable.price,
+                    CurrentTokenMetricTable.total_volume,
+                    CurrentTokenMetricTable.total_liquidity,
                     TokenTable.symbol,
                 )
                 .filter(CurrentTokenMetricTable.token_address.like(f'%{search_query}%'))
                 .join(TokenTable, CurrentTokenMetricTable.token_address == TokenTable.address)
-                .order_by(getattr(CurrentTokenMetricTable, sort_by))
+                .order_by(getattr(CurrentTokenMetricTable, sort_by).desc())
                 .limit(page_limit)
                 .offset(page_limit * (page_number - 1))
                 .all()

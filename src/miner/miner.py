@@ -111,12 +111,13 @@ class Miner(Module):
             for timestamp, token0_symbol, token1_symbol, token0_decimals, token1_decimals, amount0, amount1, transaction_hash, event_type in pool_events]
         # print(f'pool_events_dict: {pool_events_dict}')
         return RecentPoolEventResponse(data = pool_events_dict, overall_data_hash = "").json()
-    
+    @endpoint
     def forwardCurrentTokenMetricSynapse(self, synapse: CurrentTokenMetricSynapse):
         synapse = CurrentTokenMetricSynapse(**synapse)
         db_data = self.db_manager.fetch_current_token_metrics(synapse.page_limit, synapse.page_number, synapse.search_query, synapse.sort_by)
         token_metrics = db_data['token_metrics']
         total_token_count = db_data['total_token_count']
+        print(f'token_metrics: {token_metrics}')
         
         data = [CurrentTokenMetric(
             token_address=token_metric.token_address,
