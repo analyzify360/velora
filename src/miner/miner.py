@@ -18,8 +18,8 @@ from utils.protocols import (
     CurrentPoolMetricSynapse, CurrentPoolMetricResponse,
     CurrentPoolMetric, RecentPoolEventSynapse,
     RecentPoolEventResponse, PoolEvent,
-    CurrentTokenMetricSynapse, CurrentTokenMetricResponse
-    CurrentTokenMetric,
+    CurrentTokenMetricSynapse, CurrentTokenMetricResponse,
+    CurrentTokenMetric
     )
 from db.db_manager import DBManager
 
@@ -112,8 +112,22 @@ class Miner(Module):
         # print(f'pool_events_dict: {pool_events_dict}')
         return RecentPoolEventResponse(data = pool_events_dict, overall_data_hash = "").json()
     
-    def forwardCurrentTokenMetricSynapse(self, synapse: ChildProcessError):
-        pass
+    def forwardCurrentTokenMetricSynapse(self, synapse: CurrentTokenMetricSynapse):
+        synapse = CurrentTokenMetricSynapse(**synapse)
+        db_data = self.db_manager.fetch_current_token_metrics(synapse.page_limit, synapse.page_number, synapse.search_query, synapse.sort_by)
+        token_metrics = db_data['token_metrics']
+        total_token_count = db_data['total_token_count']
+        
+        data = [CurrentTokenMetric(
+            token_address=token_metric.token_address,
+            open_price=token_metric.open_price,
+            close_price=token_metric.close_price,
+            high_price=token_metric.high_price,
+            low_price=token_metric.low_price,
+            total_volume=token_metric.total_volume,
+            total_liquidity=token_metric.total_liquidity
+            ) for token_metric in token_metrics]
+        return CurrentTokenMetricResponse(data = data, total_token_count = total_token_count).json()
 
 
 if __name__ == "__main__":

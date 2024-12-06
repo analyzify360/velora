@@ -344,3 +344,5 @@ class DBManager:
                 all_events.extend(burn_events)
             all_events.sort(key=lambda event: event[0], reverse=True)
             return all_events
+    
+    def fetch_current_token_metrics(self, page_limit:int, page_number: int, search_query: str, )
