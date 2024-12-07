@@ -113,7 +113,18 @@ def set_weights(
     uids = list(weighted_scores.keys())
     weights = list(weighted_scores.values())
     # send the blockchain call
-    client.vote(key=key, uids=uids, weights=weights, netuid=netuid)
+    attempts = 10
+    while attempts:
+        try:
+            client.vote(key=key, uids=uids, weights=weights, netuid=netuid)
+        except:
+            seconds = 500 + (11 - attempts) * 100
+            log(f'Failed to vote: Attempt {11 - attempts}... Sleeping {seconds}ms')
+            time.sleep(seconds / 1000)
+        else:
+            log(f'Success to vote on chain')
+            break
+        attempts -= 1
 
 def cut_to_max_allowed_weights(
     score_dict: dict[int, float], max_allowed_weights: int
