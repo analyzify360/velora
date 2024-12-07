@@ -18,3 +18,7 @@ def unsigned_hex_to_int(hex_str: str) -> int:
         hex_str = hex_str[2:]
 
     return int(hex_str, 16)
+
+def tick_to_sqrt_price(tick: int) -> float:
+    """Convert a tick to the square root price"""
+    return 1.0001 ** (tick / 2)
