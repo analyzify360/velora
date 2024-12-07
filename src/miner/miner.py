@@ -19,7 +19,8 @@ from utils.protocols import (
     CurrentPoolMetric, RecentPoolEventSynapse,
     RecentPoolEventResponse, PoolEvent,
     CurrentTokenMetricSynapse, CurrentTokenMetricResponse,
-    CurrentTokenMetric
+    CurrentTokenMetric, PoolMetricAPI, TokenPairData,
+    PoolMetricAPISynapse, PoolMetricAPIResponse
     )
 from db.db_manager import DBManager
 
@@ -101,6 +102,7 @@ class Miner(Module):
         pool_events_dict = [
             PoolEvent(
                 timestamp=timestamp,
+                pool_address=pool_address,
                 token0_symbol=token0_symbol,
                 token1_symbol=token1_symbol,
                 amount0=float(signed_hex_to_int(amount0)) / 10 ** token0_decimals if event_type == 'swap' else float(unsigned_hex_to_int(amount0)) / 10 ** token0_decimals,
@@ -108,7 +110,7 @@ class Miner(Module):
                 event_type=event_type,
                 transaction_hash=transaction_hash
             )
-            for timestamp, token0_symbol, token1_symbol, token0_decimals, token1_decimals, amount0, amount1, transaction_hash, event_type in pool_events]
+            for timestamp, pool_address, token0_symbol, token1_symbol, token0_decimals, token1_decimals, amount0, amount1, transaction_hash, event_type in pool_events]
         # print(f'pool_events_dict: {pool_events_dict}')
         return RecentPoolEventResponse(data = pool_events_dict, overall_data_hash = "").json()
     @endpoint
@@ -127,7 +129,34 @@ class Miner(Module):
             total_liquidity=token_metric.total_liquidity
             ) for token_metric in token_metrics]
         return CurrentTokenMetricResponse(data = data, total_token_count = total_token_count).json()
-
+    
+    @endpoint
+    def forwardPoolMetricAPISynapse(self, synapse: PoolMetricAPISynapse):
+        synapse = PoolMetricAPISynapse(**synapse)
+        db_data = self.db_manager.fetch_pool_metric_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.start_timestamp, synapse.end_timestamp)
+        pool_metrics = db_data['pool_metrics']
+        total_pool_count = db_data['total_pool_count']
+        token_pair_info = db_data['token_pair_info']
+        token_pair_data = TokenPairData(
+            token0_price=token_pair_info.token0_price,
+            token1_price=token_pair_info.token1_price,
+            token0_address=token_pair_info.token0_address,
+            token1_address=token_pair_info.token1_address,
+            token0_symbol=token_pair_info.token0_symbol,
+            token1_symbol=token_pair_info.token1_symbol,
+            fee=token_pair_info.fee,
+            pool_address=token_pair_info.pool_address,
+        )
+        data = [PoolMetricAPI(
+            timestamp=pool_metric.timestamp,
+            price=pool_metric.price,
+            liquidity_token0=pool_metric.liquidity_token0,
+            liquidity_token1=pool_metric.liquidity_token1,
+            volume_token0=pool_metric.volume_token0,
+            volume_token1=pool_metric.volume_token1,
+            ) for pool_metric in pool_metrics]
+        print(f"total_pool_count: {total_pool_count}")
+        return PoolMetricAPIResponse(data = data, token_pair_data=token_pair_data, total_pool_count = total_pool_count).json()
 
 if __name__ == "__main__":
     """

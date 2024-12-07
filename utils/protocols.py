@@ -33,6 +33,38 @@ class PoolMetricResponse(BaseModel):
     volume_token0: float = 0
     volume_token1: float = 0
 
+class PoolMetricAPISynapse(BaseModel):
+    class_name: str = 'PoolMetricAPISynapse'
+    pool_address: str
+    start_timestamp: int
+    end_timestamp: int
+    page_limit: int
+    page_number: int
+
+class PoolMetricAPI(BaseModel):
+    timestamp: int
+    price: float
+    liquidity_token0: float
+    liquidity_token1: float
+    volume_token0: float
+    volume_token1: float
+
+class TokenPairData(BaseModel):
+    token0_price: float
+    token1_price: float
+    token0_symbol: str
+    token1_symbol: str
+    token0_address: str
+    token1_address: str
+    fee: int
+    pool_address: str
+    
+    
+class PoolMetricAPIResponse(BaseModel):
+    class_name: str = 'PoolMetricAPIResponse'
+    data: list[PoolMetricAPI]
+    token_pair_data: TokenPairData
+    total_pool_count: int
 class TokenMetricSynapse(BaseModel):
     class_name: str = 'TokenMetricSynapse'
     timestamp: int
@@ -136,5 +168,8 @@ class_dict = {
     'RecentPoolEventSynapse': RecentPoolEventSynapse,
     'RecentPoolEventResponse': RecentPoolEventResponse,
     'CurrentTokenMetricSynapse': CurrentTokenMetricSynapse,
-    'CurrentTokenMetricResponse': CurrentTokenMetricResponse
+    'CurrentTokenMetricResponse': CurrentTokenMetricResponse,
+    'PoolMetricAPISynapse': PoolMetricAPISynapse,
+    'PoolMetricAPIResponse': PoolMetricAPIResponse,
+    
 }

@@ -401,3 +401,49 @@ class DBManager:
                 .all()
             )
             return {"token_metrics": token_metrics, "total_token_count": total_token_count}
+    
+    def fetch_pool_metric_api(self, page_limit:int, page_number: int, pool_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+        with self.Session() as session:
+            total_pool_count = session.query(PoolMetricTable).filter(PoolMetricTable.pool_address == pool_address).count()
+            Token0 = aliased(TokenTable)
+            Token1 = aliased(TokenTable)
+            CurrentTokenMetric0 = aliased(CurrentTokenMetricTable)
+            CurrentTokenMetric1 = aliased(CurrentTokenMetricTable)
+            token_pair_info = (
+                session.query(
+                    TokenPairTable.pool.label('pool_address'),
+                    Token0.address.label('token0_address'),
+                    Token1.address.label('token1_address'),
+                    Token0.symbol.label('token0_symbol'),
+                    Token1.symbol.label('token1_symbol'),
+                    TokenPairTable.fee,
+                    CurrentTokenMetric0.price.label('token0_price'),
+                    CurrentTokenMetric1.price.label('token1_price'),
+                    
+                )
+                .filter(TokenPairTable.pool == pool_address)
+                .join(Token0, TokenPairTable.token0 == Token0.address)
+                .join(Token1, TokenPairTable.token1 == Token1.address)
+                .join(CurrentTokenMetric0, Token0.address == CurrentTokenMetric0.token_address)
+                .join(CurrentTokenMetric1, Token1.address == CurrentTokenMetric1.token_address)
+                .first()
+            )
+            
+            pool_metrics = (
+                session.query(
+                    PoolMetricTable.timestamp,
+                    PoolMetricTable.price,
+                    PoolMetricTable.liquidity_token0,
+                    PoolMetricTable.liquidity_token1,
+                    PoolMetricTable.volume_token0,
+                    PoolMetricTable.volume_token1,
+                )
+                .filter(PoolMetricTable.pool_address == pool_address)
+                .filter(PoolMetricTable.timestamp >= start_timestamp)
+                .filter(PoolMetricTable.timestamp <= end_timestamp)
+                .order_by(PoolMetricTable.timestamp.desc())
+                .limit(page_limit)
+                .offset(page_limit * (page_number - 1))
+                .all()
+            )
+            return {"pool_metrics": pool_metrics, "token_pair_info": token_pair_info, "total_pool_count": total_pool_count}
