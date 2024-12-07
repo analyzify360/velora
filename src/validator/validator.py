@@ -405,6 +405,11 @@ class VeloraValidator(Module):
         
         if miner_answer is None:
             return False
+        return {
+            'price': 0,
+            'liquidity': 0,
+            'volume': 0,
+        }
         str_ground_truth = self.uniswap_fetcher_rs.get_pool_metrics_by_pool_address(pool_address, timestamp, POOL_METRIC_INTERVAL)
         ground_truth = {
             'price': float(str_ground_truth['price']),
@@ -622,7 +627,7 @@ class VeloraValidator(Module):
             return
         elif minutes < 27:
             print('Checking miner responses and Setting weights')
-            if self.prediction_results is None:
+            if not hasattr(self, 'prediction_results') or self.prediction_results is None:
                 print('No saved miner prediction results!')
                 return
             score_dict = self.score_prediction(self.prediction_results)
