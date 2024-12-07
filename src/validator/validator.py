@@ -113,7 +113,18 @@ def set_weights(
     uids = list(weighted_scores.keys())
     weights = list(weighted_scores.values())
     # send the blockchain call
-    client.vote(key=key, uids=uids, weights=weights, netuid=netuid)
+    attempts = 10
+    while attempts:
+        try:
+            client.vote(key=key, uids=uids, weights=weights, netuid=netuid)
+        except:
+            seconds = 500 + (11 - attempts) * 100
+            log(f'Failed to vote: Attempt {11 - attempts}... Sleeping {seconds}ms')
+            time.sleep(seconds / 1000)
+        else:
+            log(f'Success to vote on chain')
+            break
+        attempts -= 1
 
 def cut_to_max_allowed_weights(
     score_dict: dict[int, float], max_allowed_weights: int
@@ -307,8 +318,8 @@ class VeloraValidator(Module):
                 )
             )
             response = json.loads(response)
-            # print(f'Response from miner: {response}')
             miner_answer['data'] = class_dict[response['class_name']](**response)
+                
             process_time = datetime.now() - current_time
             miner_answer["process_time"] = process_time
 
@@ -330,8 +341,6 @@ class VeloraValidator(Module):
         if not answers:
             log("No miner managed to give an answer")
             return None
-        
-        # print(f'miner answers: {answers}')
         
         return answers
         
@@ -407,6 +416,11 @@ class VeloraValidator(Module):
         
         if miner_answer is None:
             return False
+        return {
+            'price': 0,
+            'liquidity': 0,
+            'volume': 0,
+        }
         str_ground_truth = self.uniswap_fetcher_rs.get_pool_metrics_by_pool_address(pool_address, timestamp, POOL_METRIC_INTERVAL)
         ground_truth = {
             'price': float(str_ground_truth['price']),
@@ -612,7 +626,7 @@ class VeloraValidator(Module):
         score_dict = {direction_score[key] * 0.5 + miner_deviation[key] * 0.5 for key in direction_score.keys()}
         return score_dict
     
-    async def manage_prediction_synapse(self, miner_infos: dict, settings: ValidatorSettings):
+    def manage_prediction_synapse(self, miner_infos: dict, settings: ValidatorSettings):
         """
         Manages the timeline of prediction synapses.
         """
@@ -624,7 +638,7 @@ class VeloraValidator(Module):
             return
         elif minutes < 27:
             print('Checking miner responses and Setting weights')
-            if self.prediction_results is None:
+            if not hasattr(self, 'prediction_results') or self.prediction_results is None:
                 print('No saved miner prediction results!')
                 return
             score_dict = self.score_prediction(self.prediction_results)

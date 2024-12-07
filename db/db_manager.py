@@ -225,12 +225,6 @@ class DBManager:
             session.query(TokenPairTable).update({TokenPairTable.completed: False})
             session.commit()
     
-    def fetch_signals_pool_address(self, pool_address: str):
-        with self.Session() as session:
-            result = session.query(UniswapSignalsTable).filter_by(pool_address = pool_address).all()
-            return result
-            
-
     def find_pool_metric_timetable_pool_address(self, timestamp: int, pool_address: str):
         with self.Session() as session:
             print(f'Finding uniswap metrics table by timetable {timestamp} and pool address {pool_address}')
