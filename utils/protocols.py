@@ -32,6 +32,8 @@ class PoolMetricResponse(BaseModel):
     liquidity_token1: float = 0
     volume_token0: float = 0
     volume_token1: float = 0
+    token0_decimals: int = 1
+    token1_decimals: int = 1
 
 class PoolMetricAPISynapse(BaseModel):
     class_name: str = 'PoolMetricAPISynapse'
