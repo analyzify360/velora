@@ -228,7 +228,24 @@ class DBManager:
     def find_pool_metric_timetable_pool_address(self, timestamp: int, pool_address: str):
         with self.Session() as session:
             print(f'Finding uniswap metrics table by timetable {timestamp} and pool address {pool_address}')
-            result = session.query(PoolMetricTable).filter_by(timestamp = timestamp, pool_address = pool_address).all()
+            Token0 = aliased(TokenTable)
+            Token1 = aliased(TokenTable)
+            result = (session.query(
+                    PoolMetricTable.liquidity_token0,
+                    PoolMetricTable.liquidity_token1,
+                    PoolMetricTable.price,
+                    PoolMetricTable.volume_token0,
+                    PoolMetricTable.volume_token1,
+                    Token0.decimals.label('token0_decimals'),
+                    Token1.decimals.label('token1_decimals'),
+                )
+                .filter(PoolMetricTable.timestamp == timestamp)
+                .filter(PoolMetricTable.pool_address == pool_address)
+                .join(TokenPairTable, PoolMetricTable.pool_address == TokenPairTable.pool)
+                .join(Token0, TokenPairTable.token0 == Token0.address)
+                .join(Token1, TokenPairTable.token1 == Token1.address)
+                .all()
+            )
             if(len(result) == 0):
                 pool_metric = {}
             else:
