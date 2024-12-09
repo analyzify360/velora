@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 
 from db.db_manager import DBManager
 
@@ -22,7 +22,6 @@ db_manager = DBManager()
 def load_datasets_from_db():
     pool_address = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
     input = pd.read_sql(f"select * from token_metrics where token_address='{pool_address}'", db_manager.engine)
-    output = DataFrame()
     
     input['SMA_50'] = input['close_price'].rolling(window=50).mean()
     input['SMA_200'] = input['close_price'].rolling(window=200).mean()
@@ -31,7 +30,7 @@ def load_datasets_from_db():
     input['MACD'] = MACD(input['close_price']).macd()
     
     for i in range(1, 1 + PREDICTION_COUNT):
-        input[f'Nextclose_price{i}'] = input['close_price'].shift(-1 * i)
+        input[f'NextPrice{i}'] = input['close_price'].shift(-1 * i)
 
     input.replace([np.inf, -np.inf], np.nan, inplace = True)        
     input.dropna(inplace = True)
@@ -52,6 +51,7 @@ def preprocess(dataset: DataFrame):
 
 def base_lstm_model(X, y):
     model = Sequential()
+    model.add(Input(shape=(X.shape[1], X.shape[2])))
     model.add(LSTM(units=50, return_sequences=True, input_shape=(X.shape[1], X.shape[2])))
     model.add(Dropout(0.2))
     model.add(LSTM(units=50, return_sequences=False))
@@ -91,5 +91,5 @@ def train(X_scaler, y_scaler, X, y):
 
 if __name__ == '__main__':
     dataset = load_datasets_from_db()
-    # X_scaler, y_scaler, X, y = preprocess(dataset)
-    # mse_loss = train(X_scaler, y_scaler, X, y)
+    X_scaler, y_scaler, X, y = preprocess(dataset)
+    mse_loss = train(X_scaler, y_scaler, X, y)
