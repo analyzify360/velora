@@ -20,7 +20,9 @@ from utils.protocols import (
     RecentPoolEventResponse, PoolEvent,
     CurrentTokenMetricSynapse, CurrentTokenMetricResponse,
     CurrentTokenMetric, PoolMetricAPI, TokenPairData,
-    PoolMetricAPISynapse, PoolMetricAPIResponse
+    PoolMetricAPISynapse, PoolMetricAPIResponse,
+    TokenMetricAPISynapse, TokenMetricAPI, TokenData,
+    TokenMetricResponse,
     )
 from db.db_manager import DBManager
 
@@ -158,6 +160,28 @@ class Miner(Module):
             ) for pool_metric in pool_metrics]
         print(f"total_pool_count: {total_pool_count}")
         return PoolMetricAPIResponse(data = data, token_pair_data=token_pair_data, total_pool_count = total_pool_count).json()
+    
+    @endpoint
+    def forwardTokenMetricAPISynapse(self, synapse: TokenMetricAPISynapse):
+        synapse = TokenMetricAPISynapse(**synapse)
+        db_data = self.db_manager.fetch_token_metric_api(synapse.page_limit, synapse.page_number, synapse.token_address, synapse.start_timestamp, synapse.end_timestamp)
+        token_metrics = db_data['token_metrics']
+        total_token_count = db_data['total_token_count']
+        token_data = db_data['token_data']
+        print(f"token_data: {token_data}")
+        token_data = TokenData(
+            token_address=token_data.token_address,
+            symbol=token_data.symbol,
+            price=token_data.price,
+        )
+        data = [TokenMetricAPI(
+            timestamp=token_metric.timestamp,
+            price=token_metric.price,
+            total_volume=token_metric.total_volume,
+            total_liquidity=token_metric.total_liquidity,
+            ) for token_metric in token_metrics]
+        print(f"total_token_count: {total_token_count}")
+        return TokenMetricResponse(data = data, token_data=token_data, total_token_count = total_token_count).json()
 
 if __name__ == "__main__":
     """
