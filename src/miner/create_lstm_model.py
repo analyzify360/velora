@@ -52,7 +52,7 @@ def preprocess(dataset: DataFrame):
 def base_lstm_model(X, y):
     model = Sequential()
     model.add(Input(shape=(X.shape[1], X.shape[2])))
-    model.add(LSTM(units=50, return_sequences=True, input_shape=(X.shape[1], X.shape[2])))
+    model.add(LSTM(units=50, return_sequences=True))
     model.add(Dropout(0.2))
     model.add(LSTM(units=50, return_sequences=False))
     model.add(Dropout(0.2))
