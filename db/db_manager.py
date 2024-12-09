@@ -225,31 +225,40 @@ class DBManager:
             session.query(TokenPairTable).update({TokenPairTable.completed: False})
             session.commit()
     
-    def find_pool_metric_timetable_pool_address(self, timestamp: int, pool_address: str):
+    def find_pool_metric_timetable_pool_address(self, timestamp: int, pool_address: str, interval: int):
         with self.Session() as session:
             print(f'Finding uniswap metrics table by timetable {timestamp} and pool address {pool_address}')
             Token0 = aliased(TokenTable)
             Token1 = aliased(TokenTable)
-            result = (session.query(
-                    PoolMetricTable.liquidity_token0,
-                    PoolMetricTable.liquidity_token1,
-                    PoolMetricTable.price,
-                    PoolMetricTable.volume_token0,
-                    PoolMetricTable.volume_token1,
-                    Token0.decimals.label('token0_decimals'),
-                    Token1.decimals.label('token1_decimals'),
-                )
-                .filter(PoolMetricTable.timestamp == timestamp)
-                .filter(PoolMetricTable.pool_address == pool_address)
-                .join(TokenPairTable, PoolMetricTable.pool_address == TokenPairTable.pool)
-                .join(Token0, TokenPairTable.token0 == Token0.address)
-                .join(Token1, TokenPairTable.token1 == Token1.address)
-                .all()
-            )
+            result = []
+            for i in range(0, 2):
+                timestamp = timestamp - i * interval
+                result.append((session.query(
+                        PoolMetricTable.liquidity_token0,
+                        PoolMetricTable.liquidity_token1,
+                        PoolMetricTable.price,
+                        PoolMetricTable.volume_token0,
+                        PoolMetricTable.volume_token1,
+                        Token0.decimals.label('token0_decimals'),
+                        Token1.decimals.label('token1_decimals'),
+                    )
+                    .filter(PoolMetricTable.timestamp == timestamp)
+                    .filter(PoolMetricTable.pool_address == pool_address)
+                    .join(TokenPairTable, PoolMetricTable.pool_address == TokenPairTable.pool)
+                    .join(Token0, TokenPairTable.token0 == Token0.address)
+                    .join(Token1, TokenPairTable.token1 == Token1.address)
+                    .first()
+                ))
             if(len(result) == 0):
                 pool_metric = {}
             else:
-                pool_metric = {'price': result[0].price, 'liquidity_token0': result[0].liquidity_token0, 'liquidity_token1': result[0].liquidity_token1, 'volume_token0': result[0].volume_token0, 'volume_token1': result[0].volume_token1}
+                pool_metric = {
+                    'price': result[0].price - result[1].price if result[1] else 0.0,
+                    'liquidity_token0': result[0].liquidity_token0 - result[1].liquidity_token1 if result[1] else 0.0,
+                    'liquidity_token1': result[0].liquidity_token1 - result[1].liquidity_token1 if result[1] else 0.0,
+                    'volume_token0': result[0].volume_token0 - result[1].volume_token0 if result[1] else 0.0,
+                    'volume_token1': result[0].volume_token1 - result[1].volume_token1 if result[1] else 0.0,   
+                }
         return pool_metric
     
     def fetch_pool_events(self, start_block: int, end_block: int):
@@ -422,14 +431,15 @@ class DBManager:
             CurrentTokenMetric1 = aliased(CurrentTokenMetricTable)
             token_pair_info = (
                 session.query(
+                    CurrentTokenMetric0.price.label('token0_price'),
+                    CurrentTokenMetric1.price.label('token1_price'),
                     TokenPairTable.pool.label('pool_address'),
                     Token0.address.label('token0_address'),
                     Token1.address.label('token1_address'),
                     Token0.symbol.label('token0_symbol'),
                     Token1.symbol.label('token1_symbol'),
                     TokenPairTable.fee,
-                    CurrentTokenMetric0.price.label('token0_price'),
-                    CurrentTokenMetric1.price.label('token1_price'),
+                    
                     
                 )
                 .filter(TokenPairTable.pool == pool_address)
@@ -452,7 +462,7 @@ class DBManager:
                 .filter(PoolMetricTable.pool_address == pool_address)
                 .filter(PoolMetricTable.timestamp >= start_timestamp)
                 .filter(PoolMetricTable.timestamp <= end_timestamp)
-                .order_by(PoolMetricTable.timestamp.desc())
+                .order_by(PoolMetricTable.timestamp.asc())
                 .limit(page_limit)
                 .offset(page_limit * (page_number - 1))
                 .all()
