@@ -19,7 +19,7 @@ def serve(
     commune_key: str,
     netuid: int = 30,
     ip: str = typer.Option("0.0.0.0", help="IP to bind the server to"),
-    port: int = typer.Option(9960, help="Port to bind the server to"),
+    port: int = typer.Option(9900, help="Port to bind the server to"),
     use_testnet: bool = typer.Option(False, help="Network to connect to [`mainnet`, `testnet`]"),
     call_timeout: int = typer.Option(65, help="Timeout for the call"),
 ):

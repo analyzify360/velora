@@ -44,6 +44,16 @@ from uniswap_fetcher_rs import UniswapFetcher
 
 from communex._common import ComxSettings  # type: ignore
 
+from utils.helpers import (
+    tick_to_sqrt_price, 
+    signed_hex_to_int,
+    unsigned_hex_to_int,
+    apply_abs_to_list,
+    normalize_with_deciamls,
+    calc_prices_token0_by_token1,
+    calc_prices_token1_by_token0,
+    )
+
 import random
 import os
 from dotenv import load_dotenv
@@ -113,7 +123,18 @@ def set_weights(
     uids = list(weighted_scores.keys())
     weights = list(weighted_scores.values())
     # send the blockchain call
-    client.vote(key=key, uids=uids, weights=weights, netuid=netuid)
+    attempts = 10
+    while attempts:
+        try:
+            client.vote(key=key, uids=uids, weights=weights, netuid=netuid)
+        except:
+            seconds = 500 + (11 - attempts) * 100
+            log(f'Failed to vote: Attempt {11 - attempts}... Sleeping {seconds}ms')
+            time.sleep(seconds / 1000)
+        else:
+            log(f'Success to vote on chain')
+            break
+        attempts -= 1
 
 def cut_to_max_allowed_weights(
     score_dict: dict[int, float], max_allowed_weights: int
@@ -307,8 +328,8 @@ class VeloraValidator(Module):
                 )
             )
             response = json.loads(response)
-            # print(f'Response from miner: {response}')
             miner_answer['data'] = class_dict[response['class_name']](**response)
+                
             process_time = datetime.now() - current_time
             miner_answer["process_time"] = process_time
 
@@ -330,8 +351,6 @@ class VeloraValidator(Module):
         if not answers:
             log("No miner managed to give an answer")
             return None
-        
-        # print(f'miner answers: {answers}')
         
         return answers
         
@@ -394,6 +413,79 @@ class VeloraValidator(Module):
             correct_count += okay
         return correct_count / ANSWER_CHECK_COUNT
 
+    def get_pool_metric_by_pool_address(self, pool_address: str, timestamp: int, interval: int, token0_decimals: int, token1_decimals: int) -> dict:
+        """
+        Get the pool metrics by pool address.
+        """
+        start_block_number, end_block_number = self.uniswap_fetcher_rs.get_block_number_range(timestamp - interval, timestamp)
+        pool_events = self.uniswap_fetcher_rs.get_pool_events_by_pool_addresses([pool_address], start_block_number, end_block_number)
+        aggregated_data = {
+            "total_liquidity": [],
+            "token0_liquidity": [],
+            "token1_liquidity": [],
+            "amount0": [],
+            "amount1": [],
+            "sqrt_price_x96": [],
+        }
+        for event in pool_events.get("data", []):
+            if event.get("event").get("type") == "swap":
+                aggregated_data["sqrt_price_x96"].append(
+                    event.get("event").get("data").get("sqrt_price_x96")
+                )
+                aggregated_data["amount0"].append(
+                    signed_hex_to_int(event.get("event").get("data").get("amount0"))
+                )
+                aggregated_data["amount1"].append(
+                    signed_hex_to_int(event.get("event").get("data").get("amount1"))
+                )
+            else:
+                amount = unsigned_hex_to_int(
+                    event.get("event").get("data").get("amount", "0x0")
+                )
+                tick_lower = event.get("event").get("data").get("tick_lower")
+                tick_upper = event.get("event").get("data").get("tick_upper")
+                sqrt_price_lower = tick_to_sqrt_price(tick_lower)
+                sqrt_price_upper = tick_to_sqrt_price(tick_upper)
+                liquidity_token0 = (
+                    amount
+                    * (sqrt_price_upper - sqrt_price_lower)
+                    / (sqrt_price_upper * sqrt_price_lower)
+                )
+                liquidity_token1 = (
+                    amount * (sqrt_price_upper - sqrt_price_lower) / sqrt_price_upper
+                )
+                event_type = event.get("event").get("type")
+                if event_type == "burn":
+                    liquidity_token0 = -liquidity_token0
+                    liquidity_token1 = -liquidity_token1
+                aggregated_data["token0_liquidity"].append(liquidity_token0)
+                aggregated_data["token1_liquidity"].append(liquidity_token1)
+                aggregated_data["total_liquidity"].append(amount)
+        volume_token0 = normalize_with_deciamls(
+                sum(apply_abs_to_list(aggregated_data["amount0"])),
+                token0_decimals,
+            )
+        volume_token1 = normalize_with_deciamls(
+            sum(apply_abs_to_list(aggregated_data["amount1"])),
+            token1_decimals,
+        )
+        liquidity_token0 = normalize_with_deciamls(
+            sum(aggregated_data["token0_liquidity"]),
+            token0_decimals,
+        )
+        liquidity_token1 = normalize_with_deciamls(
+            sum(aggregated_data["token1_liquidity"]),
+            token1_decimals,
+        )
+        price_token0 = calc_prices_token0_by_token1(
+            aggregated_data["sqrt_price_x96"], token0_decimals, token1_decimals
+        )
+        price_token1 = calc_prices_token1_by_token0(
+            aggregated_data["sqrt_price_x96"], token0_decimals, token1_decimals
+        )
+        return {"price_token0": price_token0, "price_token1": price_token1, "liquidity_token0": liquidity_token0, "liquidity_token1": liquidity_token1, "volume_token0": volume_token0, "volume_token1": volume_token1}
+    
+
     def get_deviations(self, miner_prompt: PoolMetricSynapse, miner_answer: PoolMetricResponse):
         """
         Check if the miner answers are valid.
@@ -404,23 +496,21 @@ class VeloraValidator(Module):
         """
         pool_address = miner_prompt.pool_address
         timestamp = miner_prompt.timestamp
-        
+        print(f'pool_metric_events/miner_answer: {miner_answer}')
+        on_chain_pool_metric = self.get_pool_metric_by_pool_address(pool_address, timestamp, POOL_METRIC_INTERVAL, miner_answer.token0_decimals, miner_answer.token1_decimals)
+        print(f"on_chain_pool_metric: {on_chain_pool_metric}")
         if miner_answer is None:
             return False
-        str_ground_truth = self.uniswap_fetcher_rs.get_pool_metrics_by_pool_address(pool_address, timestamp, POOL_METRIC_INTERVAL)
-        ground_truth = {
-            'price': float(str_ground_truth['price']),
-            'liquidity_token0': float(str_ground_truth['liquidity_token0']),
-            'liquidity_token1': float(str_ground_truth['liquidity_token1']),
-            'volume_token0': float(str_ground_truth['volume_token0']),
-            'volume_token1': float(str_ground_truth['volume_token1']),
-        }
-        print(f'ground_truth: {ground_truth}')
+        # return {
+        #     'price': 0,
+        #     'liquidity': 0,
+        #     'volume': 0,
+        # }
         
         return {
-            'price': abs(ground_truth['price'] - miner_answer.price),
-            'liquidity': abs(ground_truth['liquidity_token0'] - miner_answer.liquidity_token0 + ground_truth['liquidity_token1'] - miner_answer.liquidity_token1),
-            'volume': abs(ground_truth['volume_token0'] - miner_answer.volume_token0 + ground_truth['volume_token1'] - miner_answer.volume_token1),
+            'price': abs(on_chain_pool_metric['price'] - miner_answer.price),
+            'liquidity': abs(on_chain_pool_metric['liquidity_token0'] - miner_answer.liquidity_token0 + on_chain_pool_metric['liquidity_token1'] - miner_answer.liquidity_token1),
+            'volume': abs(on_chain_pool_metric['volume_token0'] - miner_answer.volume_token0 + on_chain_pool_metric['volume_token1'] - miner_answer.volume_token1),
         }
 
     def check_pool_event_accuracy(self, synapse: PoolEventSynapse, miner_answer: PoolEventResponse) -> float:
@@ -464,7 +554,7 @@ class VeloraValidator(Module):
             pool_addr = random.choice(miner_data.pool_addresses)
             
             synapses.append(PoolMetricSynapse(pool_address=pool_addr,
-                                               timestamp=timestamp))
+                                               timestamp=timestamp, interval=POOL_METRIC_INTERVAL))
 
         return synapses
 
@@ -612,7 +702,7 @@ class VeloraValidator(Module):
         score_dict = {direction_score[key] * 0.5 + miner_deviation[key] * 0.5 for key in direction_score.keys()}
         return score_dict
     
-    async def manage_prediction_synapse(self, miner_infos: dict, settings: ValidatorSettings):
+    def manage_prediction_synapse(self, miner_infos: dict, settings: ValidatorSettings):
         """
         Manages the timeline of prediction synapses.
         """
@@ -624,7 +714,7 @@ class VeloraValidator(Module):
             return
         elif minutes < 27:
             print('Checking miner responses and Setting weights')
-            if self.prediction_results is None:
+            if not hasattr(self, 'prediction_results') or self.prediction_results is None:
                 print('No saved miner prediction results!')
                 return
             score_dict = self.score_prediction(self.prediction_results)
