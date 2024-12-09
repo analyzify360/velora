@@ -123,6 +123,17 @@ class TokenTable(Base):
     name = Column(String, nullable=False)
     decimals = Column(Integer, nullable=False)
 
+class TokenMetricTable(Base):
+    __tablename__ = "token_metrics"
+    timestamp = Column(Integer, nullable=False, primary_key=True)
+    token_address = Column(String, nullable=False, primary_key=True)
+
+    close_price = Column(Float)
+    high_price = Column(Float)
+    low_price = Column(Float)
+    total_volume = Column(Float)
+    total_liquidity = Column(Float)
+    
 class DBManager:
 
     def __init__(self, url = get_postgres_url()) -> None:
@@ -422,7 +433,7 @@ class DBManager:
             )
             return {"token_metrics": token_metrics, "total_token_count": total_token_count}
     
-    def fetch_pool_metric_api(self, page_limit:int, page_number: int, pool_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+    def fetch_pool_metric_api(self, page_limit:int, page_number: int, pool_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
         with self.Session() as session:
             total_pool_count = session.query(PoolMetricTable).filter(PoolMetricTable.pool_address == pool_address).count()
             Token0 = aliased(TokenTable)
@@ -468,3 +479,32 @@ class DBManager:
                 .all()
             )
             return {"pool_metrics": pool_metrics, "token_pair_info": token_pair_info, "total_pool_count": total_pool_count}
+        
+    def fetch_token_metric_api(self, page_limit: int, page_number: int, token_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
+        with self.Session() as session:
+            total_token_count = session.query(TokenMetricTable).filter(token_address == token_address).count()
+            token_data = (
+                session.query(
+                    TokenTable.address,
+                    TokenTable.symbol,
+                    TokenTable.decimals,
+                ).filter(TokenTable.address == token_address).first()
+            )
+            token_metrics = (
+                session.query(
+                    TokenMetricTable.timestamp,
+                    TokenMetricTable.close_price,
+                    TokenMetricTable.low_price,
+                    TokenMetricTable.high_price,
+                    TokenMetricTable.total_volume,
+                    TokenMetricTable.total_liquidity,
+                )
+                .filter(TokenMetricTable.token_address == token_address)
+                .filter(TokenMetricTable.timestamp >= start_timestamp)
+                .filter(TokenMetricTable.timestamp <= end_timestamp)
+                .order_by(TokenMetricTable.timestamp.asc())
+                .limit(page_limit)
+                .offset(page_limit * (page_number - 1))
+                .all()
+            )
+            return {"token_metrics": token_metrics, "token_data": token_data, "total_token_count": total_token_count}
