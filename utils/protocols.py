@@ -83,6 +83,31 @@ class TokenMetricResponse(BaseModel):
     total_volume: float = 0
     total_liquidity: float = 0
 
+class TokenMetricAPISynapse(BaseModel):
+    class_name: str = 'TokenMetricAPISynapse'
+    token_address: str
+    start_timestamp: int
+    end_timestamp: int
+    page_limit: int
+    page_number: int
+
+class TokenMetricAPI(BaseModel):
+    timestamp: int
+    price: float
+    total_volume: float
+    total_liquidity: float
+    
+class TokenData(BaseModel):
+    token_address: str
+    symbol: str
+    decimals: int
+    
+class TokenMetricAPIResponse(BaseModel):
+    class_name: str = 'TokenMetricAPIResponse'
+    data: list[TokenMetricAPI]
+    token_data: TokenData
+    total_token_count: int
+
 class PredictionSynapse(BaseModel):
     class_name: str = 'PredictionSynapse'
     timestamp: int
@@ -174,5 +199,7 @@ class_dict = {
     'CurrentTokenMetricResponse': CurrentTokenMetricResponse,
     'PoolMetricAPISynapse': PoolMetricAPISynapse,
     'PoolMetricAPIResponse': PoolMetricAPIResponse,
+    'TokenMetricAPISynapse': TokenMetricAPISynapse,
+    'TokenMetricAPIResponse': TokenMetricAPIResponse,
     
 }
