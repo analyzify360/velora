@@ -23,6 +23,7 @@ class PoolEventResponse(BaseModel):
 class PoolMetricSynapse(BaseModel):
     class_name: str = 'PoolMetricSynapse'
     timestamp: int
+    interval: int
     pool_address: str
 
 class PoolMetricResponse(BaseModel):
