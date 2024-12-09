@@ -93,7 +93,9 @@ class TokenMetricAPISynapse(BaseModel):
 
 class TokenMetricAPI(BaseModel):
     timestamp: int
-    price: float
+    close_price: float
+    high_price: float
+    low_price: float
     total_volume: float
     total_liquidity: float
     
