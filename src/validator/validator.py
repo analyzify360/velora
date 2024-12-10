@@ -225,6 +225,10 @@ class VeloraValidator(Module):
         self.uniswap_fetcher_rs = UniswapFetcher(os.getenv('ETHEREUM_RPC_NODE_URL'))
         self.wandb_running = False
         self.db_manager = ValidatorDBManager()
+        
+        self.last_synced_time = START_TIMESTAMP
+        self.sync_tokens()
+        
         if wandb_on:
             self.init_wandb()
         
@@ -624,6 +628,15 @@ class VeloraValidator(Module):
         score_dict = {direction_score[key] * 0.5 + miner_deviation[key] * 0.5 for key in direction_score.keys()}
         return score_dict
     
+    def sync_tokens(self):
+        log('Syncing tokens...')
+        
+        tokens = self.uniswap_fetcher_rs.get_all_tokens(self.last_synced_time, datetime.now().timestamp())
+        self.db_manager.add_tokens(tokens)
+        self.last_synced_time = datetime.now().timestamp()
+        
+        log(f'Synced tokens until {self.last_synced_time}')
+    
     def manage_prediction_synapse(self, miner_infos: dict, settings: ValidatorSettings):
         """
         Manages the timeline of prediction synapses.
@@ -633,7 +646,8 @@ class VeloraValidator(Module):
         minutes = time_in_slot / 60
         
         if minutes < 26:
-            return
+            if self.last_synced_time < now - time_in_slot:
+                self.sync_tokens()
         elif minutes < 27:
             print('Checking miner responses and Setting weights')
             if not hasattr(self, 'prediction_results') or self.prediction_results is None:

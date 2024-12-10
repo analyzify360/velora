@@ -25,7 +25,7 @@ class ValidatorDBManager:
         
         Base.metadata.create_all(self.engine)
     
-    def add_token(self, token_infos: List[str]):
+    def add_tokens(self, token_infos: List[str]):
         with self.Session() as session:
             data = [TokenTable(token_address = token_info) for token_info in token_infos]
             session.add_all(data)
