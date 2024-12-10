@@ -631,9 +631,10 @@ class VeloraValidator(Module):
     def sync_tokens(self):
         log('Syncing tokens...')
         
-        tokens = self.uniswap_fetcher_rs.get_all_tokens(self.last_synced_time, datetime.now().timestamp())
+        now = int(datetime.now().timestamp())
+        tokens = self.uniswap_fetcher_rs.get_all_tokens(self.last_synced_time, now)
         self.db_manager.add_tokens(tokens)
-        self.last_synced_time = datetime.now().timestamp()
+        self.last_synced_time = now
         
         log(f'Synced tokens until {self.last_synced_time}')
     

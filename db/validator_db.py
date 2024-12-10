@@ -13,6 +13,7 @@ class BaseTable(Base):
         return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
 class TokenTable(BaseTable):
+    __tablename__ = 'tokens'
     token_address = Column(String, primary_key = True, nullable = False)
 
 class ValidatorDBManager:
