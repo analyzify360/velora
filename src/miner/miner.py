@@ -10,18 +10,7 @@ from uniswap_fetcher_rs import UniswapFetcher
 from typing import List
 
 from utils.helpers import unsigned_hex_to_int, signed_hex_to_int
-from utils.protocols import (
-    HealthCheckSynapse, HealthCheckResponse,
-    PoolEventSynapse, PoolEventResponse,
-    PoolMetricSynapse, PoolMetricResponse,
-    PredictionSynapse, PredictionSynapse,
-    CurrentPoolMetricSynapse, CurrentPoolMetricResponse,
-    CurrentPoolMetric, RecentPoolEventSynapse,
-    RecentPoolEventResponse, PoolEvent,
-    CurrentTokenMetricSynapse, CurrentTokenMetricResponse,
-    CurrentTokenMetric, PoolMetricAPI, TokenPairData,
-    PoolMetricAPISynapse, PoolMetricAPIResponse
-    )
+from utils.protocols import *
 from db.db_manager import DBManager
 
 class Miner(Module):
@@ -73,7 +62,7 @@ class Miner(Module):
     
     @endpoint
     def forwardPredictionSynapse(self, synapse: PredictionSynapse):
-        pass
+        recent_token_data = self.uniswap_fetcher_rs.get_recent_pool_events()
     
     @endpoint
     def forwardCurrentPoolMetricSynapse(self, synapse: CurrentPoolMetricSynapse):
