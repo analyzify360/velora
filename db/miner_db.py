@@ -3,6 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, aliased
 from typing import Union, List, Dict
 from utils.config import get_postgres_miner_url
+from utils.utils import has_stablecoin
 
 from datetime import datetime
 
@@ -186,18 +187,43 @@ class MinerDBManager:
                 return True
             return False
 
-    def add_token_pairs(self, token_pairs: List[Dict[str, Union[str, int]]]) -> None:
+    def add_token_pairs(
+        self, token_pairs: List[Dict[str, Union[str, Integer]]]
+    ) -> None:
         """Add token pairs to the corresponding table."""
-        
+        with self.Session() as session:
+            try:
+                last_token_pair = session.query(TokenPairTable).order_by(TokenPairTable.block_number.desc()).first()
+                last_block_number = last_token_pair.block_number
+                last_pool_address = last_token_pair.pool
+            except:
+                last_block_number = 0
         insert_values = [
-            TokenPairTable(token0 = token_pair['token0'], token1 = token_pair['token1'], fee = token_pair['fee'], pool = token_pair['pool'], block_number = token_pair['block_number'], completed = False)
+            TokenPairTable(
+                token0=token_pair["token0"]["address"],
+                token1=token_pair["token1"]["address"],
+                has_stablecoin=has_stablecoin(token_pair),
+                indexed=False,
+                fee=token_pair["fee"],
+                pool=token_pair["pool_address"],
+                block_number=token_pair["block_number"],
+                completed=False,
+            )
             for token_pair in token_pairs
+            if token_pair['block_number'] > last_block_number or (token_pair['block_number'] == last_block_number and token_pair['pool_address'] != last_pool_address)
         ]
-        
+        self.add_tokens(
+            [
+                token
+                for token_pair in token_pairs
+                for token in [token_pair["token0"], token_pair["token1"]]
+            ]
+        )
+
         with self.Session() as session:
             session.add_all(insert_values)
             session.commit()
-    
+
     def fetch_token_pairs(self):
         """Fetch all token pairs from the corresponding table."""
         with self.Session() as session:

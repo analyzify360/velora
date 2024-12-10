@@ -11,7 +11,10 @@ from typing import List
 
 from utils.helpers import unsigned_hex_to_int, signed_hex_to_int
 from utils.protocols import *
+from utils.log import log
 from db.miner_db import MinerDBManager
+
+START_TIMESTAMP = int(datetime(2021, 5, 4).timestamp())
 
 class Miner(Module):
     """
@@ -28,6 +31,19 @@ class Miner(Module):
         
         self.uniswap_fetcher_rs = UniswapFetcher(os.getenv('ETHEREUM_RPC_NODE_URL'))
         self.db_manager = MinerDBManager()
+        
+        self.last_synced_time = START_TIMESTAMP
+        self.sync_token_pairs()
+    
+    def sync_token_pairs(self) -> None:
+        log('Syncing token pairs...')
+        
+        now = datetime.now().timestamp()
+        token_pairs = self.uniswap_fetcher_rs.get_pool_created_events_between_two_timestamps(self.last_synced_time, now)
+        self.db_manager.add_token_pairs(token_pairs)
+        self.last_synced_time = now
+        
+        log(f'Sync finished until {now}')
 
     @endpoint
     def forwardHealthCheckSynapse(self, synapse: dict):
