@@ -35,11 +35,7 @@ from substrateinterface import Keypair  # type: ignore
 
 from ._config import ValidatorSettings
 from utils.log import log
-from utils.protocols import (HealthCheckSynapse, HealthCheckResponse,
-                             PoolEventSynapse, PoolEventResponse,
-                             PoolMetricSynapse, PoolMetricResponse,
-                             PredictionSynapse, PredictionResponse,
-                             class_dict)
+from utils.protocols import *
 from uniswap_fetcher_rs import UniswapFetcher
 
 from communex._common import ComxSettings  # type: ignore
@@ -48,6 +44,8 @@ import random
 import os
 from dotenv import load_dotenv
 import wandb
+
+from db.miner_db import DBManager
 
 load_dotenv()
 
@@ -222,11 +220,11 @@ class VeloraValidator(Module):
         self.client = client
         self.key = key
         self.netuid = netuid
-        self.val_model = "foo"
         self.call_timeout = call_timeout
         
         self.uniswap_fetcher_rs = UniswapFetcher(os.getenv('ETHEREUM_RPC_NODE_URL'))
         self.wandb_running = False
+        self.db_manager = DBManager(url = get_postgres_url(db = 'velora-validator'))
         if wandb_on:
             self.init_wandb()
         

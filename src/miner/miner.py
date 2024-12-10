@@ -11,7 +11,7 @@ from typing import List
 
 from utils.helpers import unsigned_hex_to_int, signed_hex_to_int
 from utils.protocols import *
-from db.db_manager import DBManager
+from db.miner_db import MinerDBManager
 
 class Miner(Module):
     """
@@ -27,7 +27,7 @@ class Miner(Module):
         super().__init__()
         
         self.uniswap_fetcher_rs = UniswapFetcher(os.getenv('ETHEREUM_RPC_NODE_URL'))
-        self.db_manager = DBManager()
+        self.db_manager = MinerDBManager()
 
     @endpoint
     def forwardHealthCheckSynapse(self, synapse: dict):

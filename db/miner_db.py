@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, St
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, aliased
 from typing import Union, List, Dict
-from utils.config import get_postgres_url
+from utils.config import get_postgres_miner_url
 
 from datetime import datetime
 
@@ -123,9 +123,9 @@ class TokenTable(Base):
     name = Column(String, nullable=False)
     decimals = Column(Integer, nullable=False)
 
-class DBManager:
+class MinerDBManager:
 
-    def __init__(self, url = get_postgres_url()) -> None:
+    def __init__(self, url = get_postgres_miner_url()) -> None:
         # Create the SQLAlchemy engine
         self.engine = create_engine(url)
 

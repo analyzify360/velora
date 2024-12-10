@@ -13,7 +13,7 @@ from sklearn.metrics import mean_squared_error
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 
-from db.db_manager import DBManager
+from db.miner_db import DBManager
 
 PREDICTION_COUNT = 6
 
