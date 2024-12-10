@@ -1,7 +1,7 @@
-from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, Float, inspect, insert, desc, asc, desc
+from sqlalchemy import create_engine, Column, String
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, aliased
-from typing import Union, List, Dict
+from sqlalchemy.orm import sessionmaker
+from typing import List
 from utils.config import get_postgres_validator_url
 
 # Define the base class for your table models
@@ -12,15 +12,8 @@ class BaseTable(Base):
     def to_dict(self):
         return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
-class TokenPairTable(BaseTable):
-    __tablename__ = 'token_pairs'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    token0 = Column(String, nullable=False)
-    token1 = Column(String, nullable=False)
-    fee = Column(Integer, nullable=False)
-    pool = Column(String, nullable=False)
-    block_number = Column(String, nullable=False)
-    completed = Column(Boolean, nullable=False)
+class TokenTable(BaseTable):
+    token_address = Column(String, primary_key = True, nullable = False)
 
 class ValidatorDBManager:
     def __init__(self, url = get_postgres_validator_url()):
@@ -29,3 +22,11 @@ class ValidatorDBManager:
 
         # Create a configured "Session" class
         self.Session = sessionmaker(bind=self.engine)
+        
+        Base.metadata.create_all(self.engine)
+    
+    def add_token(self, token_infos: List[str]):
+        with self.Session() as session:
+            data = [TokenTable(token_address = token_info) for token_info in token_infos]
+            session.add_all(data)
+            session.commit()

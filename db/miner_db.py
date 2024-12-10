@@ -26,9 +26,11 @@ class TokenPairTable(BaseTable):
     id = Column(Integer, primary_key=True, autoincrement=True)
     token0 = Column(String, nullable=False)
     token1 = Column(String, nullable=False)
+    has_stablecoin = Column(Boolean, nullable=False)
+    indexed = Column(Boolean, nullable=False)
     fee = Column(Integer, nullable=False)
     pool = Column(String, nullable=False)
-    block_number = Column(String, nullable=False)
+    block_number = Column(Integer, nullable=False)
     completed = Column(Boolean, nullable=False)
 
 class SwapEventTable(BaseTable):

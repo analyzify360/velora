@@ -45,7 +45,7 @@ import os
 from dotenv import load_dotenv
 import wandb
 
-from db.miner_db import DBManager
+from db.validator_db import ValidatorDBManager
 
 load_dotenv()
 
@@ -224,7 +224,7 @@ class VeloraValidator(Module):
         
         self.uniswap_fetcher_rs = UniswapFetcher(os.getenv('ETHEREUM_RPC_NODE_URL'))
         self.wandb_running = False
-        self.db_manager = DBManager(url = get_postgres_url(db = 'velora-validator'))
+        self.db_manager = ValidatorDBManager()
         if wandb_on:
             self.init_wandb()
         
