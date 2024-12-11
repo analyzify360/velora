@@ -672,8 +672,9 @@ class VeloraValidator(Module):
         elif minutes < 29:
             print('Send prediction synapses and receive responses')
             next_timestamp_to_predict = now - time_in_slot + PREDICTION_SYNAPSE_INTERVAL
+            tokens = self.db_manager.getAvailableTokens()
             
-            synapse = PredictionSynapse(timestamp = next_timestamp_to_predict)
+            synapse = PredictionSynapse(timestamp = next_timestamp_to_predict, token_address = random.choice(tokens))
             miner_results = self.get_miner_answer(miner_infos, synapse)
             self.prediction_results = list(zip(miner_infos.keys(), miner_results))
         

@@ -9,3 +9,6 @@ STABLECOINS = [
 def has_stablecoin(token_pair: dict, stablecoins: list = STABLECOINS) -> bool:
     """Check if the pool has a stablecoin"""
     return token_pair["token0"]["address"] in stablecoins or token_pair["token1"]["address"] in stablecoins
+
+def is_stablecoin(token_address: str, stablecoins: list = STABLECOINS) -> bool:
+    return token_address in stablecoins
