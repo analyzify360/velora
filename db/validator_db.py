@@ -38,3 +38,8 @@ class ValidatorDBManager:
             data = [TokenTable(token_address = token_info['token_address'], block_number = token_info['block_number']) for token_info in token_infos]
             session.add_all(data)
             session.commit()
+    
+    def getAvailableTokens(self):
+        with self.Session() as session:
+            res = session.query(TokenTable).all()
+            return [token.token_address for token in res]
