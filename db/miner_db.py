@@ -225,7 +225,16 @@ class MinerDBManager:
             session.commit()
     
     def fetch_related_tokens(self, token: str):
-        pass
+        with self.Session() as session:
+            res = session.query(TokenPairTable).filter_by(token0=token).all()
+            if res is not None:
+                for token_pair in res:
+                    yield token_pair.token1
+                    
+            res = session.query(TokenPairTable).filter_by(token1=token).all()
+            if res is not None:
+                for token_pair in res:
+                    yield token_pair.token0
     
     def search_pool_address(self, token0: str, token1: str):
         with self.Session() as session:
