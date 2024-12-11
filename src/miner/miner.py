@@ -22,7 +22,7 @@ from utils.protocols import (
     CurrentTokenMetric, PoolMetricAPI, TokenPairData,
     PoolMetricAPISynapse, PoolMetricAPIResponse,
     TokenMetricAPISynapse, TokenMetricAPI, TokenData,
-    TokenMetricResponse,
+    TokenMetricAPIResponse,
     )
 from db.db_manager import DBManager
 
@@ -170,18 +170,20 @@ class Miner(Module):
         token_data = db_data['token_data']
         print(f"token_data: {token_data}")
         token_data = TokenData(
-            token_address=token_data.token_address,
+            token_address=token_data.address,
             symbol=token_data.symbol,
-            price=token_data.price,
+            decimals=token_data.decimals,
         )
         data = [TokenMetricAPI(
             timestamp=token_metric.timestamp,
-            price=token_metric.price,
+            close_price=token_metric.close_price,
+            high_price=token_metric.high_price,
+            low_price=token_metric.low_price,
             total_volume=token_metric.total_volume,
             total_liquidity=token_metric.total_liquidity,
             ) for token_metric in token_metrics]
         print(f"total_token_count: {total_token_count}")
-        return TokenMetricResponse(data = data, token_data=token_data, total_token_count = total_token_count).json()
+        return TokenMetricAPIResponse(data = data, token_data=token_data, total_token_count = total_token_count).json()
 
 if __name__ == "__main__":
     """

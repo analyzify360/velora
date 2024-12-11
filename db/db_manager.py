@@ -482,7 +482,12 @@ class DBManager:
         
     def fetch_token_metric_api(self, page_limit: int, page_number: int, token_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
         with self.Session() as session:
-            total_token_count = session.query(TokenMetricTable).filter(token_address == token_address).count()
+            total_token_count = (
+                session.query(TokenMetricTable)
+                .filter(token_address == token_address)
+                .filter(TokenMetricTable.timestamp >= start_timestamp)
+                .filter(TokenMetricTable.timestamp <= end_timestamp).count()
+            )
             token_data = (
                 session.query(
                     TokenTable.address,
