@@ -33,7 +33,7 @@ class TokenPairTable(BaseTable):
     pool = Column(String, nullable=False)
     block_number = Column(Integer, nullable=False)
     completed = Column(Boolean, nullable=False)
-    last_synced_time = Column(Integer, nullable=False)
+    last_synced_time = Column(Integer, nullable=True)
 
 class SwapEventTable(BaseTable):
     __tablename__ = 'swap_event'
