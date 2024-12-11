@@ -226,9 +226,9 @@ class VeloraValidator(Module):
         self.wandb_running = False
         self.db_manager = ValidatorDBManager()
 
-        self.last_synced_timestamp = self.db_manager.lastSyncedTimeStamp()
-        if self.last_synced_timestamp is None:
-            self.last_synced_timestamp = START_TIMESTAMP
+        self.last_synced_time = self.db_manager.lastSyncedTimeStamp()
+        if self.last_synced_time is None:
+            self.last_synced_time = START_TIMESTAMP
         self.sync_tokens()
         
         if wandb_on:

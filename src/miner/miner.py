@@ -36,9 +36,9 @@ class Miner(Module):
         self.uniswap_fetcher_rs = UniswapFetcher(os.getenv('ETHEREUM_RPC_NODE_URL'))
         self.db_manager = MinerDBManager()
         
-        self.last_synced_timestamp = self.db_manager.lastSyncedTimestamp()
-        if self.last_synced_timestamp is None:
-            self.last_synced_timestamp = START_TIMESTAMP
+        self.last_synced_time = self.db_manager.lastSyncedTimestamp()
+        if self.last_synced_time is None:
+            self.last_synced_time = START_TIMESTAMP
         self.sync_token_pairs()
     
     def sync_token_pairs(self) -> None:
