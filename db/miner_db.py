@@ -223,6 +223,20 @@ class MinerDBManager:
         with self.Session() as session:
             session.add_all(insert_values)
             session.commit()
+    
+    def fetch_related_tokens(self, token: str):
+        pass
+    
+    def search_pool_address(self, token0: str, token1: str):
+        with self.Session() as session:
+            res = session.query(TokenPairTable).filter_by(token0=token0, token1=token1).first()
+            if res is not None:
+                return res.pool
+            
+            res = session.query(TokenPairTable).filter_by(token0=token1, token1=token0).first()
+            if res is not None:
+                return res.pool
+        return None
             
     def lastSyncedBlockNumber(self):
         with self.Session() as session:
