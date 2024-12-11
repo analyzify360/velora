@@ -33,6 +33,7 @@ class TokenPairTable(BaseTable):
     pool = Column(String, nullable=False)
     block_number = Column(Integer, nullable=False)
     completed = Column(Boolean, nullable=False)
+    last_synced_time = Column(Integer, nullable=False)
 
 class SwapEventTable(BaseTable):
     __tablename__ = 'swap_event'
@@ -188,7 +189,7 @@ class MinerDBManager:
             return False
 
     def add_token_pairs(
-        self, token_pairs: List[Dict[str, Union[str, Integer]]]
+        self, token_pairs: List[Dict[str, Union[str, Integer]]], timestamp: int
     ) -> None:
         """Add token pairs to the corresponding table."""
         with self.Session() as session:
@@ -208,6 +209,7 @@ class MinerDBManager:
                 pool=token_pair["pool_address"],
                 block_number=token_pair["block_number"],
                 completed=False,
+                last_synced_time=timestamp
             )
             for token_pair in token_pairs
             if token_pair['block_number'] > last_block_number or (token_pair['block_number'] == last_block_number and token_pair['pool_address'] != last_pool_address)
@@ -247,11 +249,11 @@ class MinerDBManager:
                 return res.pool
         return None
             
-    def lastSyncedBlockNumber(self):
+    def lastSyncedTimestamp(self):
         with self.Session() as session:
-            res = session.query(TokenPairTable).order_by(TokenPairTable.block_number.desc()).first()
+            res = session.query(TokenPairTable).order_by(TokenPairTable.last_synced_time.desc()).first()
             if res is not None:
-                return res.block_number
+                return res.last_synced_time
 
     def fetch_token_pairs(self):
         """Fetch all token pairs from the corresponding table."""
