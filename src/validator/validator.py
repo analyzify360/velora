@@ -226,11 +226,9 @@ class VeloraValidator(Module):
         self.wandb_running = False
         self.db_manager = ValidatorDBManager()
 
-        self.last_synced_block_number = self.db_manager.lastSyncedBlockNumber()
-        if self.last_synced_block_number is None:
+        self.last_synced_timestamp = self.db_manager.lastSyncedTimeStamp()
+        if self.last_synced_timestamp is None:
             self.last_synced_timestamp = START_TIMESTAMP
-        else:
-            self.last_synced_timestamp = self.uniswap_fetcher_rs.getTimestampFromBlockNumber(self.last_synced_block_number)
         self.sync_tokens()
         
         if wandb_on:
@@ -637,7 +635,7 @@ class VeloraValidator(Module):
         
         now = int(datetime.now().timestamp())
         tokens = self.uniswap_fetcher_rs.get_all_tokens(self.last_synced_time, now)
-        self.db_manager.add_tokens(tokens)
+        self.db_manager.add_tokens(tokens, now)
         self.last_synced_time = now
         
         log(f'Synced tokens until {self.last_synced_time}')

@@ -15,7 +15,7 @@ class BaseTable(Base):
 class TokenTable(BaseTable):
     __tablename__ = 'tokens'
     token_address = Column(String, primary_key = True, nullable = False)
-    block_number = Column(Integer, nullable=False)
+    last_synced_time = Column(Integer, nullable=False)
 
 class ValidatorDBManager:
     def __init__(self, url = get_postgres_validator_url()):
@@ -27,15 +27,15 @@ class ValidatorDBManager:
         
         Base.metadata.create_all(self.engine)
             
-    def lastSyncedBlockNumber(self):
+    def lastSyncedTimeStamp(self):
         with self.Session() as session:
-            res = session.query(TokenTable).order_by(TokenTable.block_number.desc()).first()
+            res = session.query(TokenTable).order_by(TokenTable.last_synced_time.desc()).first()
             if res is not None:
-                return res.block_number
+                return res.last_synced_time
     
-    def add_tokens(self, token_infos: List[dict]):
+    def add_tokens(self, token_infos: List[str], timestamp: int):
         with self.Session() as session:
-            data = [TokenTable(token_address = token_info['token_address'], block_number = token_info['block_number']) for token_info in token_infos]
+            data = [TokenTable(token_address = token_info, last_synced_time = timestamp) for token_info in token_infos]
             session.add_all(data)
             session.commit()
     
