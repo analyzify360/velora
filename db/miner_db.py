@@ -223,6 +223,12 @@ class MinerDBManager:
         with self.Session() as session:
             session.add_all(insert_values)
             session.commit()
+            
+    def lastSyncedBlockNumber(self):
+        with self.Session() as session:
+            res = session.query(TokenPairTable).order_by(TokenPairTable.block_number.desc()).first()
+            if res is not None:
+                return res.block_number
 
     def fetch_token_pairs(self):
         """Fetch all token pairs from the corresponding table."""
