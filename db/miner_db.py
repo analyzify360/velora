@@ -187,6 +187,25 @@ class MinerDBManager:
                 session.commit()
                 return True
             return False
+        
+    def add_tokens(self, tokens: List[Dict[str, Union[str, Integer]]]) -> None:
+        """Add tokens to the corresponding table."""
+        with self.Session() as session:
+            for token in tokens:
+                exists = (
+                    session.query(TokenTable)
+                    .filter_by(address=token["address"])
+                    .first()
+                )
+                if not exists:
+                    new_token = TokenTable(
+                        address=token["address"],
+                        symbol=token["symbol"],
+                        name=token["name"],
+                        decimals=token["decimals"],
+                    )
+                    session.add(new_token)
+            session.commit()
 
     def add_token_pairs(
         self, token_pairs: List[Dict[str, Union[str, Integer]]], timestamp: int
