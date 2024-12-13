@@ -168,7 +168,7 @@ class Miner(Module):
     @endpoint
     def forwardTokenMetricAPISynapse(self, synapse: TokenMetricAPISynapse):
         synapse = TokenMetricAPISynapse(**synapse)
-        db_data = self.db_manager.fetch_token_metric_api(synapse.page_limit, synapse.page_number, synapse.token_address, synapse.start_timestamp, synapse.end_timestamp)
+        db_data = self.db_manager.fetch_token_metric_api(synapse.page_limit, synapse.page_number, synapse.token_address, synapse.period, synapse.start_timestamp, synapse.end_timestamp)
         token_metrics = db_data['token_metrics']
         total_token_count = db_data['total_token_count']
         token_data = db_data['token_data']

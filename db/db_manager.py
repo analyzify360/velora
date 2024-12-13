@@ -513,8 +513,9 @@ class DBManager:
         with self.Session() as session:
             latest_timestamp = session.query(func.max(PoolMetricTable.timestamp)).filter(PoolMetricTable.pool_address == pool_address).first()[0]
             oldest_timestamp = session.query(func.min(PoolMetricTable.timestamp)).filter(PoolMetricTable.pool_address == pool_address).first()[0]
-            start_timestamp = start_timestamp if start_timestamp != 0 else min(latest_timestamp - self.get_seconds_from_period(period), oldest_timestamp)
+            start_timestamp = start_timestamp if start_timestamp != 0 else max(latest_timestamp - self.get_seconds_from_period(period), oldest_timestamp)
             end_timestamp = end_timestamp if end_timestamp != 0 else latest_timestamp
+            print(f'Start timestamp: {start_timestamp}, End timestamp: {end_timestamp}')
             total_pool_count = session.query(PoolMetricTable).filter(PoolMetricTable.pool_address == pool_address).count()
             Token0 = aliased(TokenTable)
             Token1 = aliased(TokenTable)
@@ -558,10 +559,15 @@ class DBManager:
                 .offset(page_limit * (page_number - 1))
                 .all()
             )
+            print(f'Pool metrics: {pool_metrics}')
             return {"pool_metrics": pool_metrics, "token_pair_info": token_pair_info, "total_pool_count": total_pool_count}
         
-    def fetch_token_metric_api(self, page_limit: int, page_number: int, token_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
+    def fetch_token_metric_api(self, page_limit: int, page_number: int, token_address: str, period: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
         with self.Session() as session:
+            latest_timestamp = session.query(func.max(TokenMetricTable.timestamp)).filter(TokenMetricTable.token_address == token_address).first()[0]
+            oldest_timestamp = session.query(func.min(TokenMetricTable.timestamp)).filter(TokenMetricTable.token_address == token_address).first()[0]
+            start_timestamp = start_timestamp if start_timestamp != 0 else max(latest_timestamp - self.get_seconds_from_period(period), oldest_timestamp)
+            end_timestamp = end_timestamp if end_timestamp != 0 else latest_timestamp
             total_token_count = (
                 session.query(TokenMetricTable)
                 .filter(TokenMetricTable.token_address == token_address)

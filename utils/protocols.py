@@ -88,8 +88,9 @@ class TokenMetricResponse(BaseModel):
 class TokenMetricAPISynapse(BaseModel):
     class_name: str = 'TokenMetricAPISynapse'
     token_address: str
-    start_timestamp: int
-    end_timestamp: int
+    period: str
+    start_timestamp: Optional[int]
+    end_timestamp: Optional[int]
     page_limit: int
     page_number: int
 
