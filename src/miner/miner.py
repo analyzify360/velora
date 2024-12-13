@@ -85,15 +85,15 @@ class Miner(Module):
         total_pool_count = db_data['total_pool_count']
         print(f'current_pool_metrics: {pool_metrics}')
         data =  [CurrentPoolMetric(
-            pool_address=current_pool_metric.pool_address,
-            liquidity_token0=current_pool_metric.liquidity_token0,
-            liquidity_token1=current_pool_metric.liquidity_token1,
-            volume_token0=current_pool_metric.volume_token0,
-            volume_token1=current_pool_metric.volume_token1,
-            fee=fee,
-            token0_symbol=token0_symbol,
-            token1_symbol=token1_symbol,
-            ) for current_pool_metric, token0_symbol, token1_symbol, fee in pool_metrics]
+            pool_address=current_pool_metric["pool_address"],
+            liquidity_token0=current_pool_metric["liquidity_token0"],
+            liquidity_token1=current_pool_metric["liquidity_token1"],
+            volume_token0=current_pool_metric["volume_token0"],
+            volume_token1=current_pool_metric["volume_token1"],
+            fee=current_pool_metric["fee"],
+            token0_symbol=current_pool_metric["token0_symbol"],
+            token1_symbol=current_pool_metric["token1_symbol"],
+            ) for current_pool_metric in pool_metrics]
         return CurrentPoolMetricResponse(data = data, overall_data_hash = "", total_pool_count=total_pool_count).json()
     
     @endpoint

@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, Float, inspect, insert, desc, asc, desc
+from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, Float, inspect, func, desc, asc, desc, and_
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, aliased
 from typing import Union, List, Dict
@@ -323,24 +323,83 @@ class DBManager:
             Token0 = aliased(TokenTable)
             Token1 = aliased(TokenTable)
             TokenPair = aliased(TokenPairTable)
+            TokenMetric0 = aliased(CurrentTokenMetricTable)
+            TokenMetric1 = aliased(CurrentTokenMetricTable)
             total_pool_count = session.query(CurrentPoolMetricTable).filter(CurrentPoolMetricTable.pool_address.like(f'%{search_query}%')).count()
+            # recent_fetched_timestamp = session.query(PoolMetricTable.timestamp).group_by().order_by(PoolMetricTable.timestamp.desc()).first()
+            latest_timestamps = session.query(
+                PoolMetricTable.pool_address,
+                func.max(PoolMetricTable.timestamp).label('latest_timestamp')
+            ).group_by(PoolMetricTable.pool_address).subquery()
+
+            # recent_fetched_timestamp = session.query(
+            #     latest_timestamps.c.pool_address,
+            #     latest_timestamps.c.latest_timestamp
+            # ).order_by(latest_timestamps.c.latest_timestamp.desc()).all()
+            # print(f'Recent fetched timestamp: {recent_fetched_timestamp}')
             pool_metrics = (
                 session.query(
-                    CurrentPoolMetricTable,
+                    PoolMetricTable,
                     Token0.symbol.label('token0_symbol'),
                     Token1.symbol.label('token1_symbol'),
                     TokenPair.fee.label('fee'),
+                    TokenMetric0.price.label('token0_price'),
+                    TokenMetric1.price.label('token1_price')
                 )
-                .filter(CurrentPoolMetricTable.pool_address.like(f'%{search_query}%'))
-                .join(TokenPair, CurrentPoolMetricTable.pool_address == TokenPair.pool)
+                .filter(PoolMetricTable.pool_address == latest_timestamps.c.pool_address)
+                .filter(PoolMetricTable.timestamp == latest_timestamps.c.latest_timestamp)
+                .join(TokenPair, PoolMetricTable.pool_address == TokenPair.pool)
                 .join(Token0, TokenPair.token0 == Token0.address)
                 .join(Token1, TokenPair.token1 == Token1.address)
-                .order_by(order_method(getattr(CurrentPoolMetricTable, sort_by)))
+                .join(TokenMetric0, TokenPair.token0 == TokenMetric0.token_address)
+                .join(TokenMetric1, TokenPair.token1 == TokenMetric1.token_address)
+                .order_by(order_method(getattr(PoolMetricTable, sort_by)))
                 .limit(page_limit)
                 .offset(page_limit * (page_number - 1))
                 .all()
             )
-            return {"pool_metrics": pool_metrics, "total_pool_count": total_pool_count}
+            
+            print(f'Pool metrics: {pool_metrics}')
+            pool_metrics_with_diff = []
+            for metric in pool_metrics:
+                previous_metric = session.query(PoolMetricTable).filter(
+                    PoolMetricTable.pool_address == metric.PoolMetricTable.pool_address,
+                    PoolMetricTable.timestamp == metric.PoolMetricTable.timestamp - 300
+                ).first()
+                
+                if previous_metric:
+                    metric_diff = {
+                        "pool_address": metric.PoolMetricTable.pool_address,
+                        "timestamp": metric.PoolMetricTable.timestamp,
+                        "price": metric.PoolMetricTable.price,
+                        "liquidity_token0": metric.PoolMetricTable.liquidity_token0,
+                        "liquidity_token1": metric.PoolMetricTable.liquidity_token1,
+                        "total_volume_token0": metric.PoolMetricTable.volume_token0,
+                        "total_volume_token1": metric.PoolMetricTable.volume_token1,
+                        "volume_token0": metric.PoolMetricTable.volume_token0 - previous_metric.volume_token0,
+                        "volume_token1": metric.PoolMetricTable.volume_token1 - previous_metric.volume_token1,
+                        "token0_symbol": metric.token0_symbol,
+                        "token1_symbol": metric.token1_symbol,
+                        "fee": metric.fee
+                    }
+                else:
+                    metric_diff = {
+                        "pool_address": metric.PoolMetricTable.pool_address,
+                        "timestamp": metric.PoolMetricTable.timestamp,
+                        "price": metric.PoolMetricTable.price,
+                        "liquidity_token0": metric.PoolMetricTable.liquidity_token0,
+                        "liquidity_token1": metric.PoolMetricTable.liquidity_token1,
+                        "total_volume_token0": metric.PoolMetricTable.volume_token0,
+                        "total_volume_token1": metric.PoolMetricTable.volume_token1,
+                        "volume_token0": metric.PoolMetricTable.volume_token0,
+                        "volume_token1": metric.PoolMetricTable.volume_token1,
+                        "token0_symbol": metric.token0_symbol,
+                        "token1_symbol": metric.token1_symbol,
+                        "fee": metric.fee
+                    }
+                pool_metrics_with_diff.append(metric_diff)
+            return {"pool_metrics": pool_metrics_with_diff, "total_pool_count": total_pool_count}
+            # return {"pool_metrics": pool_metrics, "total_pool_count": total_pool_count}
     
     def fetch_recent_pool_events(self, page_limit: int, filter_by: str) -> Dict[str, List[Dict[str, Union[str, int]]]]:
         with self.Session() as session:
@@ -484,9 +543,10 @@ class DBManager:
         with self.Session() as session:
             total_token_count = (
                 session.query(TokenMetricTable)
-                .filter(token_address == token_address)
+                .filter(TokenMetricTable.token_address == token_address)
                 .filter(TokenMetricTable.timestamp >= start_timestamp)
-                .filter(TokenMetricTable.timestamp <= end_timestamp).count()
+                .filter(TokenMetricTable.timestamp <= end_timestamp)
+                .count()
             )
             token_data = (
                 session.query(
