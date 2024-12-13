@@ -89,7 +89,7 @@ class Miner(Module):
         price_in_usd = [1] * (12 * 24)
         for token_pair in token_pairs:
             pool_address = self.db_manager.search_pool_address(token_pair[0], token_pair[1])
-            data = self.uniswap_fetcher_rs.get_recent_token_ratio(pool_address, synapse.timestamp - DAY, synapse.timestamp)
+            data = self.uniswap_fetcher_rs.get_pool_price_ratios(pool_address, synapse.timestamp - DAY, synapse.timestamp, 300)
             price_in_usd = [price_in_usd[i] * data[i] for i in range(len(data))]
         
         price_history = pd.DataFrame(price_in_usd, columns=['close_price'])

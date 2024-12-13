@@ -35,8 +35,15 @@ class ValidatorDBManager:
     
     def add_tokens(self, token_infos: List[str], timestamp: int):
         with self.Session() as session:
-            data = [TokenTable(token_address = token_info, last_synced_time = timestamp) for token_info in token_infos]
-            session.add_all(data)
+            for token_info in token_infos:
+                # Check if the token already exists
+                existing_token = session.query(TokenTable).filter_by(token_address=token_info).first()
+                if not existing_token:
+                    # If it doesn't exist, create a new record
+                    new_token = TokenTable(token_address=token_info, last_synced_time=timestamp)
+                    session.add(new_token)
+            
+            # Commit all new tokens at once
             session.commit()
     
     def getAvailableTokens(self):
