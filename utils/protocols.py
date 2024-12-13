@@ -1,5 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
+from typing import Optional
 
 class HealthCheckSynapse(BaseModel):
     class_name: str = 'HealthCheckSynapse'
@@ -39,8 +40,9 @@ class PoolMetricResponse(BaseModel):
 class PoolMetricAPISynapse(BaseModel):
     class_name: str = 'PoolMetricAPISynapse'
     pool_address: str
-    start_timestamp: int
-    end_timestamp: int
+    period: str
+    start_timestamp: Optional[int]
+    end_timestamp: Optional[int]
     page_limit: int
     page_number: int
 

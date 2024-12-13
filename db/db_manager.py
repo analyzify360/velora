@@ -133,7 +133,9 @@ class TokenMetricTable(Base):
     low_price = Column(Float)
     total_volume = Column(Float)
     total_liquidity = Column(Float)
-    
+
+
+
 class DBManager:
 
     def __init__(self, url = get_postgres_url()) -> None:
@@ -359,7 +361,6 @@ class DBManager:
                 .all()
             )
             
-            print(f'Pool metrics: {pool_metrics}')
             pool_metrics_with_diff = []
             for metric in pool_metrics:
                 previous_metric = session.query(PoolMetricTable).filter(
@@ -376,10 +377,12 @@ class DBManager:
                         "liquidity_token1": metric.PoolMetricTable.liquidity_token1,
                         "total_volume_token0": metric.PoolMetricTable.volume_token0,
                         "total_volume_token1": metric.PoolMetricTable.volume_token1,
-                        "volume_token0": metric.PoolMetricTable.volume_token0 - previous_metric.volume_token0,
-                        "volume_token1": metric.PoolMetricTable.volume_token1 - previous_metric.volume_token1,
+                        "volume_token0_1day": metric.PoolMetricTable.volume_token0 - previous_metric.volume_token0,
+                        "volume_token1_1day": metric.PoolMetricTable.volume_token1 - previous_metric.volume_token1,
                         "token0_symbol": metric.token0_symbol,
                         "token1_symbol": metric.token1_symbol,
+                        "token0_price": metric.token0_price,
+                        "token1_price": metric.token1_price,
                         "fee": metric.fee
                     }
                 else:
@@ -391,10 +394,12 @@ class DBManager:
                         "liquidity_token1": metric.PoolMetricTable.liquidity_token1,
                         "total_volume_token0": metric.PoolMetricTable.volume_token0,
                         "total_volume_token1": metric.PoolMetricTable.volume_token1,
-                        "volume_token0": metric.PoolMetricTable.volume_token0,
-                        "volume_token1": metric.PoolMetricTable.volume_token1,
+                        "volume_token0_1day": metric.PoolMetricTable.volume_token0,
+                        "volume_token1_1day": metric.PoolMetricTable.volume_token1,
                         "token0_symbol": metric.token0_symbol,
                         "token1_symbol": metric.token1_symbol,
+                        "token0_price": metric.token0_price,
+                        "token1_price": metric.token1_price,
                         "fee": metric.fee
                     }
                 pool_metrics_with_diff.append(metric_diff)
@@ -492,8 +497,24 @@ class DBManager:
             )
             return {"token_metrics": token_metrics, "total_token_count": total_token_count}
     
-    def fetch_pool_metric_api(self, page_limit:int, page_number: int, pool_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
+    def get_seconds_from_period(self, period: str) -> int:
+        if period == '1d':
+            return 86400
+        elif period == '1w':
+            return 604800
+        elif period == '1m':
+            return 2592000
+        elif period == '1y':
+            return 31536000
+        else:
+            return 86400
+    
+    def fetch_pool_metric_api(self, page_limit:int, page_number: int, pool_address: str, period: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
         with self.Session() as session:
+            latest_timestamp = session.query(func.max(PoolMetricTable.timestamp)).filter(PoolMetricTable.pool_address == pool_address).first()[0]
+            oldest_timestamp = session.query(func.min(PoolMetricTable.timestamp)).filter(PoolMetricTable.pool_address == pool_address).first()[0]
+            start_timestamp = start_timestamp if start_timestamp != 0 else min(latest_timestamp - self.get_seconds_from_period(period), oldest_timestamp)
+            end_timestamp = end_timestamp if end_timestamp != 0 else latest_timestamp
             total_pool_count = session.query(PoolMetricTable).filter(PoolMetricTable.pool_address == pool_address).count()
             Token0 = aliased(TokenTable)
             Token1 = aliased(TokenTable)

@@ -88,11 +88,15 @@ class Miner(Module):
             pool_address=current_pool_metric["pool_address"],
             liquidity_token0=current_pool_metric["liquidity_token0"],
             liquidity_token1=current_pool_metric["liquidity_token1"],
-            volume_token0=current_pool_metric["volume_token0"],
-            volume_token1=current_pool_metric["volume_token1"],
+            total_volume_token0=current_pool_metric["total_volume_token0"],
+            total_volume_token1=current_pool_metric["total_volume_token1"],
+            volume_token0_1day=current_pool_metric["volume_token0_1day"],
+            volume_token1_1day=current_pool_metric["volume_token1_1day"],
             fee=current_pool_metric["fee"],
             token0_symbol=current_pool_metric["token0_symbol"],
             token1_symbol=current_pool_metric["token1_symbol"],
+            token0_price=current_pool_metric["token0_price"],
+            token1_price=current_pool_metric["token1_price"],
             ) for current_pool_metric in pool_metrics]
         return CurrentPoolMetricResponse(data = data, overall_data_hash = "", total_pool_count=total_pool_count).json()
     
@@ -135,7 +139,7 @@ class Miner(Module):
     @endpoint
     def forwardPoolMetricAPISynapse(self, synapse: PoolMetricAPISynapse):
         synapse = PoolMetricAPISynapse(**synapse)
-        db_data = self.db_manager.fetch_pool_metric_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.start_timestamp, synapse.end_timestamp)
+        db_data = self.db_manager.fetch_pool_metric_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.period, synapse.start_timestamp, synapse.end_timestamp)
         pool_metrics = db_data['pool_metrics']
         total_pool_count = db_data['total_pool_count']
         token_pair_info = db_data['token_pair_info']
