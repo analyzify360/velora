@@ -116,6 +116,7 @@ class TokenMetricAPIResponse(BaseModel):
 class PredictionSynapse(BaseModel):
     class_name: str = 'PredictionSynapse'
     timestamp: int
+    token_address: str
     
 class PredictionResponse(BaseModel):
     class_name: str = 'PredictionResponse'

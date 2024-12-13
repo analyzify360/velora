@@ -13,25 +13,27 @@ from sklearn.metrics import mean_squared_error
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 
-from db.db_manager import DBManager
+from db.miner_db import MinerDBManager
 
 PREDICTION_COUNT = 6
 
-db_manager = DBManager()
+db_manager = MinerDBManager()
 
-def load_datasets_from_db():
-    pool_address = '0x04916039b1f59d9745bf6e0a21f191d1e0a84287'
-    input = pd.read_sql(f"select * from uniswap_signals where pool_address='{pool_address}'", db_manager.engine)
-    output = DataFrame()
+def load_datasets_from_db(pool_address):
+    pool_address = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
+    input = pd.read_sql(f"select * from token_metrics where token_address='{pool_address}'", db_manager.engine)
     
-    input['SMA_50'] = input['price'].rolling(window=50).mean()
-    input['SMA_200'] = input['price'].rolling(window=200).mean()
-    input['RSI'] = RSIIndicator(input['price']).rsi()
-    input['Momentum'] = ROCIndicator(input['price']).roc()
-    input['MACD'] = MACD(input['price']).macd()
+    return input
+
+def extract_features(input):
+    input['SMA_50'] = input['close_price'].rolling(window=50).mean()
+    input['SMA_200'] = input['close_price'].rolling(window=200).mean()
+    input['RSI'] = RSIIndicator(input['close_price']).rsi()
+    input['Momentum'] = ROCIndicator(input['close_price']).roc()
+    input['MACD'] = MACD(input['close_price']).macd()
     
     for i in range(1, 1 + PREDICTION_COUNT):
-        input[f'NextPrice{i}'] = input['price'].shift(-1 * i)
+        input[f'NextPrice{i}'] = input['close_price'].shift(-1 * i)
 
     input.replace([np.inf, -np.inf], np.nan, inplace = True)        
     input.dropna(inplace = True)
@@ -42,7 +44,7 @@ def load_datasets_from_db():
 def preprocess(dataset: DataFrame):
     model_path = './base_model'
     
-    X = dataset[['price', 'SMA_50', 'SMA_200', 'RSI', 'Momentum', 'MACD']].values
+    X = dataset[['close_price', 'SMA_50', 'SMA_200', 'RSI', 'Momentum', 'MACD']].values
     y = dataset[['NextPrice1', 'NextPrice2', 'NextPrice3', 'NextPrice4', 'NextPrice5', 'NextPrice6']].values
     
     X_scaler = joblib.load(f'{model_path}/X_scaler.pkl')
@@ -67,7 +69,22 @@ def predict(X, y_scaler):
     
     return predicted_prices
 
+def predict_token_price(data: DataFrame = None, pool_address: str = None):
+    if data is None and pool_address is None:
+        print('No data available.')
+        return None
+    
+    if data is None:
+        data = load_datasets_from_db(pool_address)
+    
+    data = extract_features(data)
+    X_scaler, y_scaler, X, y = preprocess(data)
+    result = predict(X, y_scaler)
+    
+    return result
+
 if __name__ == '__main__':
     dataset = load_datasets_from_db()
+    dataset = extract_features(dataset)
     X_scaler, y_scaler, X, y = preprocess(dataset)
     mse_loss = predict(X, y_scaler)
