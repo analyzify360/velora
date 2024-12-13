@@ -446,22 +446,12 @@ class VeloraValidator(Module):
                 amount = unsigned_hex_to_int(
                     event.get("event").get("data").get("amount", "0x0")
                 )
-                tick_lower = event.get("event").get("data").get("tick_lower")
-                tick_upper = event.get("event").get("data").get("tick_upper")
-                sqrt_price_lower = tick_to_sqrt_price(tick_lower)
-                sqrt_price_upper = tick_to_sqrt_price(tick_upper)
-                liquidity_token0 = (
-                    amount
-                    * (sqrt_price_upper - sqrt_price_lower)
-                    / (sqrt_price_upper * sqrt_price_lower)
+                liquidity_token0 = unsigned_hex_to_int(
+                    event.get("event").get("data").get("liquidity_token0", "0x0")
                 )
-                liquidity_token1 = (
-                    amount * (sqrt_price_upper - sqrt_price_lower) / sqrt_price_upper
+                liquidity_token1 = unsigned_hex_to_int(
+                    event.get("event").get("data").get("liquidity_token1", "0x0")
                 )
-                event_type = event.get("event").get("type")
-                if event_type == "burn":
-                    liquidity_token0 = -liquidity_token0
-                    liquidity_token1 = -liquidity_token1
                 aggregated_data["token0_liquidity"].append(liquidity_token0)
                 aggregated_data["token1_liquidity"].append(liquidity_token1)
                 aggregated_data["total_liquidity"].append(amount)
@@ -481,13 +471,9 @@ class VeloraValidator(Module):
             sum(aggregated_data["token1_liquidity"]),
             token1_decimals,
         )
-        price_token0 = calc_prices_token0_by_token1(
-            aggregated_data["sqrt_price_x96"], token0_decimals, token1_decimals
-        )
-        price_token1 = calc_prices_token1_by_token0(
-            aggregated_data["sqrt_price_x96"], token0_decimals, token1_decimals
-        )
-        return {"price_token0": price_token0, "price_token1": price_token1, "liquidity_token0": liquidity_token0, "liquidity_token1": liquidity_token1, "volume_token0": volume_token0, "volume_token1": volume_token1}
+        price_ratios = self.uniswap_fetcher_rs.get_pool_price_ratios(pool_address, timestamp - interval, timestamp, interval)
+        price = float(price_ratios[-1].get("price_ratio")) if price_ratios else 0.0
+        return {"price": price, "liquidity_token0": liquidity_token0, "liquidity_token1": liquidity_token1, "volume_token0": volume_token0, "volume_token1": volume_token1}
     
 
     def get_deviations(self, miner_prompt: PoolMetricSynapse, miner_answer: PoolMetricResponse):
@@ -505,11 +491,6 @@ class VeloraValidator(Module):
         print(f"on_chain_pool_metric: {on_chain_pool_metric}")
         if miner_answer is None:
             return False
-        # return {
-        #     'price': 0,
-        #     'liquidity': 0,
-        #     'volume': 0,
-        # }
         
         return {
             'price': abs(on_chain_pool_metric['price'] - miner_answer.price),
