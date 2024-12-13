@@ -133,11 +133,15 @@ class CurrentPoolMetric(BaseModel):
     pool_address: str
     liquidity_token0: float
     liquidity_token1: float
-    volume_token0: float
-    volume_token1: float
+    total_volume_token0: float
+    total_volume_token1: float
+    volume_token0_1day: float
+    volume_token1_1day: float
     token0_symbol: str
     token1_symbol: str
     fee: int
+    token0_price: float
+    token1_price: float
 class CurrentPoolMetricResponse(BaseModel):
     class_name: str = 'CurrentPoolMetricResponse'
     data: list[CurrentPoolMetric]
