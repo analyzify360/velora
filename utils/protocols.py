@@ -1,5 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
+from typing import Optional
 
 class HealthCheckSynapse(BaseModel):
     class_name: str = 'HealthCheckSynapse'
@@ -39,8 +40,9 @@ class PoolMetricResponse(BaseModel):
 class PoolMetricAPISynapse(BaseModel):
     class_name: str = 'PoolMetricAPISynapse'
     pool_address: str
-    start_timestamp: int
-    end_timestamp: int
+    period: str
+    start_timestamp: Optional[int]
+    end_timestamp: Optional[int]
     page_limit: int
     page_number: int
 
@@ -83,6 +85,34 @@ class TokenMetricResponse(BaseModel):
     total_volume: float = 0
     total_liquidity: float = 0
 
+class TokenMetricAPISynapse(BaseModel):
+    class_name: str = 'TokenMetricAPISynapse'
+    token_address: str
+    period: str
+    start_timestamp: Optional[int]
+    end_timestamp: Optional[int]
+    page_limit: int
+    page_number: int
+
+class TokenMetricAPI(BaseModel):
+    timestamp: int
+    close_price: float
+    high_price: float
+    low_price: float
+    total_volume: float
+    total_liquidity: float
+    
+class TokenData(BaseModel):
+    token_address: str
+    symbol: str
+    decimals: int
+    
+class TokenMetricAPIResponse(BaseModel):
+    class_name: str = 'TokenMetricAPIResponse'
+    data: list[TokenMetricAPI]
+    token_data: TokenData
+    total_token_count: int
+
 class PredictionSynapse(BaseModel):
     class_name: str = 'PredictionSynapse'
     timestamp: int
@@ -107,11 +137,15 @@ class CurrentPoolMetric(BaseModel):
     pool_address: str
     liquidity_token0: float
     liquidity_token1: float
-    volume_token0: float
-    volume_token1: float
+    total_volume_token0: float
+    total_volume_token1: float
+    volume_token0_1day: float
+    volume_token1_1day: float
     token0_symbol: str
     token1_symbol: str
     fee: int
+    token0_price: float
+    token1_price: float
 class CurrentPoolMetricResponse(BaseModel):
     class_name: str = 'CurrentPoolMetricResponse'
     data: list[CurrentPoolMetric]
@@ -175,5 +209,7 @@ class_dict = {
     'CurrentTokenMetricResponse': CurrentTokenMetricResponse,
     'PoolMetricAPISynapse': PoolMetricAPISynapse,
     'PoolMetricAPIResponse': PoolMetricAPIResponse,
+    'TokenMetricAPISynapse': TokenMetricAPISynapse,
+    'TokenMetricAPIResponse': TokenMetricAPIResponse,
     
 }
