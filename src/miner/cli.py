@@ -26,7 +26,7 @@ def serve(
     password = getpass.getpass(prompt="Enter the password for your key:")
     key = classic_load_key(commune_key, password=password)
     miner = Miner()
-    refill_rate = 1 / 40
+    refill_rate = 1
     # Implementing custom limit
     bucket = TokenBucketLimiter(50, refill_rate)
     server = ModuleServer(miner, key, limiter=bucket, subnets_whitelist=[netuid], use_testnet = use_testnet)
