@@ -244,7 +244,6 @@ class MinerDBManager:
             for token_pair in token_pairs
             if token_pair['block_number'] > last_block_number
         ]
-        print(f'Inserting token pairs: {insert_values}')
         self.add_tokens(
             [
                 token

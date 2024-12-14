@@ -7,6 +7,7 @@ import os
 import json
 import hashlib
 import pandas as pd
+from datetime import datetime, timezone
 from uniswap_fetcher_rs import UniswapFetcher
 from typing import List
 
@@ -17,7 +18,7 @@ from utils.bfs import breadthFirstSearch
 from src.miner.predict_lstm_model import predict_token_price
 from db.miner_db import MinerDBManager
 
-START_TIMESTAMP = int(datetime(2021, 5, 4).timestamp())
+START_TIMESTAMP = int(datetime(2021, 5, 4).replace(tzinfo=timezone.utc).timestamp())
 DAY = 60 * 60 * 24
 
 class Miner(Module):
