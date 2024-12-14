@@ -783,7 +783,7 @@ class VeloraValidator(Module):
         # Check prediction
         self.manage_prediction_synapse(valid_miner_infos, settings)
         
-        score_dict = {key: health_score[key] * 0.3 + pool_events_score[key] * 0.3 + pool_metric_events_score[key] * 0.4 for key in valid_miner_infos.keys()}
+        score_dict = {key: health_score.get(key, 0) * 0.3 + pool_events_score.get(key, 0) * 0.3 + pool_metric_events_score.get(key, 0) * 0.4 for key in valid_miner_infos.keys()}
 
         if not score_dict:
             log("No miner managed to give a valid answer")
