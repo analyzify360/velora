@@ -282,7 +282,7 @@ class MinerDBManager:
             
     def lastSyncedTimestamp(self):
         with self.Session() as session:
-            res = session.query(TokenPairTable).order_by(TokenPairTable.last_synced_time.asc()).first()
+            res = session.query(TokenPairTable).order_by(TokenPairTable.last_synced_time.desc()).first()
             print(f'Last synced timestamp: {res.last_synced_time}')
             if res is not None:
                 return res.last_synced_time
