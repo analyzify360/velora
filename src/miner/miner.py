@@ -96,7 +96,7 @@ class Miner(Module):
         
         price_history = pd.DataFrame(price_in_usd, columns=['close_price'])
         price = predict_token_price(price_history)
-        return PredictionResponse(price=price).json()
+        return PredictionResponse(prices=price).json()
     
     @endpoint
     def forwardCurrentPoolMetricSynapse(self, synapse: CurrentPoolMetricSynapse):
