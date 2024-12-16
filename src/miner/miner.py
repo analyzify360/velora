@@ -213,7 +213,7 @@ class Miner(Module):
     @endpoint
     def forwardSwapEventAPISynapse(self, synapse: SwapEventAPISynapse):
         synapse = SwapEventAPISynapse(**synapse)
-        db_data = self.db_manager.fetch_swap_event_api(synapse.page_limit, synapse.page_number, synapse.start_timestamp, synapse.end_timestamp)
+        db_data = self.db_manager.fetch_swap_event_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.start_timestamp, synapse.end_timestamp)
         pool_events = db_data['swap_events']
         total_swap_count = db_data['total_swap_count']
         data = [{
@@ -229,11 +229,11 @@ class Miner(Module):
             "liquidity": pool_event.liquidity,
             "tick": pool_event.tick,
             } for pool_event in pool_events]
-        return SwapEventAPISynapse(data = data, total_swap_count = total_swap_count).json()
+        return SwapEventAPIResponse(data = data, total_event_count = total_swap_count).json()
     @endpoint
     def forwardMintEventAPISynapse(self, synapse: MintEventAPISynapse):
         synapse = MintEventAPISynapse(**synapse)
-        db_data = self.db_manager.fetch_mint_event_api(synapse.page_limit, synapse.page_number, synapse.start_timestamp, synapse.end_timestamp)
+        db_data = self.db_manager.fetch_mint_event_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.start_timestamp, synapse.end_timestamp)
         pool_events = db_data['mint_events']
         total_mint_count = db_data['total_mint_count']
         data = [{
@@ -249,11 +249,12 @@ class Miner(Module):
             "amount0": pool_event.amount0,
             "amount1": pool_event.amount1,
             } for pool_event in pool_events]
-        return MintEventAPISynapse(data = data, total_mint_count = total_mint_count).json()
+        return MintEventAPIResponse(data = data, total_event_count = total_mint_count).json()
     @endpoint
-    def forwardBurnEventAPISynpase(self, synapse: BurnEventAPISynapse):
+    def forwardBurnEventAPISynapse(self, synapse: BurnEventAPISynapse):
         synapse = BurnEventAPISynapse(**synapse)
-        db_data = self.db_manager.fetch_burn_event_api(synapse.page_limit, synapse.page_number, synapse.start_timestamp, synapse.end_timestamp)
+        print(f"synapse: {synapse}")
+        db_data = self.db_manager.fetch_burn_event_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.start_timestamp, synapse.end_timestamp)
         pool_events = db_data['burn_events']
         total_burn_count = db_data['total_burn_count']
         data = [{
@@ -269,7 +270,7 @@ class Miner(Module):
             "amount1": pool_event.amount1,
             
             } for pool_event in pool_events]
-        return BurnEventAPISynapse(data = data, total_burn_count = total_burn_count).json()
+        return BurnEventAPIResponse(data = data, total_event_count = total_burn_count).json()
     
 
 if __name__ == "__main__":
