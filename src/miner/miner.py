@@ -209,6 +209,19 @@ class Miner(Module):
             ) for token_metric in token_metrics]
         print(f"total_token_count: {total_token_count}")
         return TokenMetricAPIResponse(data = data, token_data=token_data, total_token_count = total_token_count).json()
+    
+    @endpoint
+    def forwardSwapEventAPISynapse(self, synapse: SwapEventAPISynapse):
+        synapse = SwapEventAPISynapse(**synapse)
+        db_data = self.db_manager.fetch_swap_event_api(synapse.page_limit, synapse.page_number, synapse.start_timestamp, synapse.end_timestamp)
+        pool_events = db_data['pool_events']
+        total_pool_count = db_data['total_pool_count']
+        print(f'pool_events: {pool_events}')
+        data = [{
+            "timestamp": pool_event.timestamp,
+            
+            } for pool_event in pool_events]
+        return SwapEventAPISynapse(data = data, total_pool_count = total_pool_count).json()
 
 if __name__ == "__main__":
     """

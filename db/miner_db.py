@@ -679,3 +679,34 @@ class MinerDBManager:
                 .all()
             )
             return {"token_metrics": token_metrics, "token_data": token_data, "total_token_count": total_token_count}
+    
+    def fetch_swap_event_api(self, page_limit: int, page_number: int, pool_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+        with self.Session() as session:
+            total_swap_count = session.query(SwapEventTable).filter(
+                SwapEventTable.pool_address == pool_address,
+                SwapEventTable.timestamp >= start_timestamp,
+                SwapEventTable.timestamp <= end_timestamp
+            ).count()
+            swap_events = (
+                session.query(
+                    SwapEventTable.timestamp,
+                    SwapEventTable.transaction_hash,
+                    SwapEventTable.sender,
+                    SwapEventTable.to,
+                    SwapEventTable.amount0,
+                    SwapEventTable.amount1,
+                    SwapEventTable.sqrt_price_x96,
+                    SwapEventTable.liquidity,
+                    SwapEventTable.tick,
+                )
+                .filter(
+                    SwapEventTable.pool_address == pool_address,
+                    SwapEventTable.timestamp >= start_timestamp,
+                    SwapEventTable.timestamp <= end_timestamp
+                )
+                .order_by(SwapEventTable.timestamp.asc())
+                .limit(page_limit)
+                .offset(page_limit * (page_number - 1))
+                .all()
+            )
+            return {"swap_events": swap_events, "total_swap_count": total_swap_count}
