@@ -29,11 +29,9 @@ def extract_features(input):
     input['SMA_50'] = input['close_price'].rolling(window=50).mean()
     input['SMA_200'] = input['close_price'].rolling(window=200).mean()
     input['RSI'] = RSIIndicator(input['close_price']).rsi()
-    input['Momentum'] = ROCIndicator(input['close_price']).roc()
+    # input['Momentum'] = ROCIndicator(input['close_price']).roc()
     input['MACD'] = MACD(input['close_price']).macd()
-    
-    for i in range(1, 1 + PREDICTION_COUNT):
-        input[f'NextPrice{i}'] = input['close_price'].shift(-1 * i)
+    print(input)
 
     input.replace([np.inf, -np.inf], np.nan, inplace = True)        
     input.dropna(inplace = True)
@@ -44,15 +42,13 @@ def extract_features(input):
 def preprocess(dataset: DataFrame):
     model_path = './base_model'
     
-    X = dataset[['close_price', 'SMA_50', 'SMA_200', 'RSI', 'Momentum', 'MACD']].values
-    y = dataset[['NextPrice1', 'NextPrice2', 'NextPrice3', 'NextPrice4', 'NextPrice5', 'NextPrice6']].values
+    X = dataset[['close_price', 'SMA_50', 'SMA_200', 'RSI', 'MACD']].values
     
     X_scaler = joblib.load(f'{model_path}/X_scaler.pkl')
     y_scaler = joblib.load(f'{model_path}/y_scaler.pkl')
     X_scaled = X_scaler.transform(X)
-    y_scaled = y_scaler.transform(y)
     
-    return X_scaler, y_scaler, X_scaled, y_scaled
+    return X_scaler, y_scaler, X_scaled
 
 def predict(X, y_scaler):
     model_path = './base_model'
@@ -78,7 +74,7 @@ def predict_token_price(data: DataFrame = None, pool_address: str = None):
         data = load_datasets_from_db(pool_address)
     
     data = extract_features(data)
-    X_scaler, y_scaler, X, y = preprocess(data)
+    X_scaler, y_scaler, X = preprocess(data)
     result = predict(X, y_scaler)
     
     return result
@@ -86,5 +82,5 @@ def predict_token_price(data: DataFrame = None, pool_address: str = None):
 if __name__ == '__main__':
     dataset = load_datasets_from_db()
     dataset = extract_features(dataset)
-    X_scaler, y_scaler, X, y = preprocess(dataset)
+    X_scaler, y_scaler, X = preprocess(dataset)
     mse_loss = predict(X, y_scaler)

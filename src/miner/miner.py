@@ -88,11 +88,11 @@ class Miner(Module):
         synapse = PredictionSynapse(**synapse)
         self.sync_token_pairs()
         token_pairs = breadthFirstSearch(self, synapse.token_address)
-        price_in_usd = [1] * (12 * 24)
+        price_in_usd = [1] * (12 * 24 - 6)
         for token_pair in token_pairs:
             pool_address = self.db_manager.search_pool_address(token_pair[0], token_pair[1])
-            data = self.uniswap_fetcher_rs.get_pool_price_ratios(pool_address, synapse.timestamp - DAY, synapse.timestamp, 300)
-            price_in_usd = [price_in_usd[i] * data[i] for i in range(len(data))]
+            data = self.uniswap_fetcher_rs.get_pool_price_ratios(pool_address, synapse.timestamp - DAY, synapse.timestamp - 30 * 60, 300)
+            price_in_usd = [price_in_usd[i] * float(data[i]['price_ratio']) for i in range(len(data))]
         
         price_history = pd.DataFrame(price_in_usd, columns=['close_price'])
         price = predict_token_price(price_history)

@@ -705,33 +705,33 @@ class VeloraValidator(Module):
         time_in_slot = now % PREDICTION_SYNAPSE_INTERVAL
         minutes = time_in_slot / 60
         
-        if minutes < 26:
-            if self.last_synced_time < now - time_in_slot:
-                self.sync_tokens()
-        elif minutes < 27:
-            print('Checking miner responses and Setting weights')
-            if not hasattr(self, 'prediction_results') or self.prediction_results is None:
-                print('No saved miner prediction results!')
-                return
-            score_dict = self.score_prediction(self.prediction_results)
+        # if minutes < 26:
+        #     if self.last_synced_time < now - time_in_slot:
+        #         self.sync_tokens()
+        # elif minutes < 27:
+        #     print('Checking miner responses and Setting weights')
+        #     if not hasattr(self, 'prediction_results') or self.prediction_results is None:
+        #         print('No saved miner prediction results!')
+        #         return
+        #     score_dict = self.score_prediction(self.prediction_results)
 
-            if not score_dict:
-                log("No miner managed to give a valid answer")
-                return None
+        #     if not score_dict:
+        #         log("No miner managed to give a valid answer")
+        #         return None
             
-            log(score_dict)
+        #     log(score_dict)
 
-            # the blockchain call to set the weights
-            _ = set_weights(settings, score_dict, self.netuid, self.client, self.key)
+        #     # the blockchain call to set the weights
+        #     _ = set_weights(settings, score_dict, self.netuid, self.client, self.key)
                 
-        elif minutes < 29:
-            print('Send prediction synapses and receive responses')
-            next_timestamp_to_predict = now - time_in_slot + PREDICTION_SYNAPSE_INTERVAL
-            tokens = self.db_manager.getAvailableTokens()
-            
-            synapse = PredictionSynapse(timestamp = next_timestamp_to_predict, token_address = random.choice(tokens))
-            miner_results = self.get_miner_answer(miner_infos, synapse)
-            self.prediction_results = list(zip(miner_infos.keys(), miner_results))
+        # elif minutes < 29:
+        print('Send prediction synapses and receive responses')
+        next_timestamp_to_predict = now - time_in_slot + PREDICTION_SYNAPSE_INTERVAL
+        tokens = self.db_manager.getAvailableTokens()
+        
+        synapse = PredictionSynapse(timestamp = next_timestamp_to_predict, token_address = random.choice(tokens))
+        miner_results = self.get_miner_answer(miner_infos, synapse)
+        self.prediction_results = list(zip(miner_infos.keys(), miner_results))
         
     
     async def validate_step(
