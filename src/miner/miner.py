@@ -209,6 +209,69 @@ class Miner(Module):
             ) for token_metric in token_metrics]
         print(f"total_token_count: {total_token_count}")
         return TokenMetricAPIResponse(data = data, token_data=token_data, total_token_count = total_token_count).json()
+    
+    @endpoint
+    def forwardSwapEventAPISynapse(self, synapse: SwapEventAPISynapse):
+        synapse = SwapEventAPISynapse(**synapse)
+        db_data = self.db_manager.fetch_swap_event_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.start_timestamp, synapse.end_timestamp)
+        pool_events = db_data['swap_events']
+        total_swap_count = db_data['total_swap_count']
+        data = [{
+            "timestamp": pool_event.timestamp,
+            "pool_address": pool_event.pool_address,
+            "block_number": pool_event.block_number,
+            "transaction_hash": pool_event.transaction_hash,
+            "sender": pool_event.sender,
+            "to": pool_event.to,
+            "amount0": pool_event.amount0,
+            "amount1": pool_event.amount1,
+            "sqrt_price_x96": pool_event.sqrt_price_x96,
+            "liquidity": pool_event.liquidity,
+            "tick": pool_event.tick,
+            } for pool_event in pool_events]
+        return SwapEventAPIResponse(data = data, total_event_count = total_swap_count).json()
+    @endpoint
+    def forwardMintEventAPISynapse(self, synapse: MintEventAPISynapse):
+        synapse = MintEventAPISynapse(**synapse)
+        db_data = self.db_manager.fetch_mint_event_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.start_timestamp, synapse.end_timestamp)
+        pool_events = db_data['mint_events']
+        total_mint_count = db_data['total_mint_count']
+        data = [{
+            "timestamp": pool_event.timestamp,
+            "pool_address": pool_event.pool_address,
+            "block_number": pool_event.block_number,
+            "transaction_hash": pool_event.transaction_hash,
+            "sender": pool_event.sender,
+            "owner": pool_event.owner,
+            "tick_lower": pool_event.tick_lower,
+            "tick_upper": pool_event.tick_upper,
+            "amount": pool_event.amount,
+            "amount0": pool_event.amount0,
+            "amount1": pool_event.amount1,
+            } for pool_event in pool_events]
+        return MintEventAPIResponse(data = data, total_event_count = total_mint_count).json()
+    @endpoint
+    def forwardBurnEventAPISynapse(self, synapse: BurnEventAPISynapse):
+        synapse = BurnEventAPISynapse(**synapse)
+        print(f"synapse: {synapse}")
+        db_data = self.db_manager.fetch_burn_event_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.start_timestamp, synapse.end_timestamp)
+        pool_events = db_data['burn_events']
+        total_burn_count = db_data['total_burn_count']
+        data = [{
+            "timestamp": pool_event.timestamp,
+            "pool_address": pool_event.pool_address,
+            "block_number": pool_event.block_number,
+            "transaction_hash": pool_event.transaction_hash,
+            "owner": pool_event.owner,
+            "tick_lower": pool_event.tick_lower,
+            "tick_upper": pool_event.tick_upper,
+            "amount": pool_event.amount,
+            "amount0": pool_event.amount0,
+            "amount1": pool_event.amount1,
+            
+            } for pool_event in pool_events]
+        return BurnEventAPIResponse(data = data, total_event_count = total_burn_count).json()
+    
 
 if __name__ == "__main__":
     """
