@@ -690,6 +690,8 @@ class MinerDBManager:
             swap_events = (
                 session.query(
                     SwapEventTable.timestamp,
+                    SwapEventTable.pool_address,
+                    SwapEventTable.block_number,
                     SwapEventTable.transaction_hash,
                     SwapEventTable.sender,
                     SwapEventTable.to,
@@ -710,3 +712,68 @@ class MinerDBManager:
                 .all()
             )
             return {"swap_events": swap_events, "total_swap_count": total_swap_count}
+    
+    def fetch_mint_event_api(self, page_limit: int, page_number: int, pool_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+        with self.Session() as session:
+            total_mint_count = session.query(MintEventTable).filter(
+                MintEventTable.pool_address == pool_address,
+                MintEventTable.timestamp >= start_timestamp,
+                MintEventTable.timestamp <= end_timestamp
+            ).count()
+            mint_events = (
+                session.query(
+                    MintEventTable.timestamp,
+                    MintEventTable.pool_address,
+                    MintEventTable.block_number,
+                    MintEventTable.transaction_hash,
+                    MintEventTable.sender,
+                    MintEventTable.owner,
+                    MintEventTable.tick_lower,
+                    MintEventTable.tick_upper,
+                    MintEventTable.amount,
+                    MintEventTable.amount0,
+                    MintEventTable.amount1,
+                )
+                .filter(
+                    MintEventTable.pool_address == pool_address,
+                    MintEventTable.timestamp >= start_timestamp,
+                    MintEventTable.timestamp <= end_timestamp
+                )
+                .order_by(MintEventTable.timestamp.asc())
+                .limit(page_limit)
+                .offset(page_limit * (page_number - 1))
+                .all()
+            )
+            return {"mint_events": mint_events, "total_mint_count": total_mint_count}
+    
+    def fetch_burn_event_api(self, page_limit: int, page_number: int, pool_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+        with self.Session() as session:
+            total_burn_count = session.query(BurnEventTable).filter(
+                BurnEventTable.pool_address == pool_address,
+                BurnEventTable.timestamp >= start_timestamp,
+                BurnEventTable.timestamp <= end_timestamp
+            ).count()
+            burn_events = (
+                session.query(
+                    BurnEventTable.timestamp,
+                    BurnEventTable.pool_address,
+                    BurnEventTable.block_number,
+                    BurnEventTable.transaction_hash,
+                    BurnEventTable.owner,
+                    BurnEventTable.tick_lower,
+                    BurnEventTable.tick_upper,
+                    BurnEventTable.amount,
+                    BurnEventTable.amount0,
+                    BurnEventTable.amount1,
+                )
+                .filter(
+                    BurnEventTable.pool_address == pool_address,
+                    BurnEventTable.timestamp >= start_timestamp,
+                    BurnEventTable.timestamp <= end_timestamp
+                )
+                .order_by(BurnEventTable.timestamp.asc())
+                .limit(page_limit)
+                .offset(page_limit * (page_number - 1))
+                .all()
+            )
+            return {"burn_events": burn_events, "total_burn_count": total_burn_count}
