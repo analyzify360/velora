@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker, aliased
 from typing import Union, List, Dict
 from utils.config import get_postgres_miner_url
 from utils.utils import has_stablecoin
+from utils.helpers import get_seconds_from_period
 
 from datetime import datetime
 
@@ -573,30 +574,20 @@ class MinerDBManager:
             )
             return {"token_metrics": token_metrics, "total_token_count": total_token_count}
     
-    def get_seconds_from_period(self, period: str) -> int:
-        if period == '1d':
-            return 86400
-        elif period == '1w':
-            return 604800
-        elif period == '1m':
-            return 2592000
-        elif period == '1y':
-            return 31536000
-        else:
-            return 86400
-    
-    def fetch_pool_metric_api(self, page_limit:int, page_number: int, pool_address: str, period: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
+    def fetch_pool_metric_api(self, page_limit:int, page_number: int, pool_address: str, interval: str, period: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
         with self.Session() as session:
             latest_timestamp = session.query(func.max(PoolMetricTable.timestamp)).filter(PoolMetricTable.pool_address == pool_address).first()[0]
             oldest_timestamp = session.query(func.min(PoolMetricTable.timestamp)).filter(PoolMetricTable.pool_address == pool_address).first()[0]
-            start_timestamp = start_timestamp if start_timestamp != 0 else max(latest_timestamp - self.get_seconds_from_period(period), oldest_timestamp)
+            start_timestamp = start_timestamp if start_timestamp != 0 else max(latest_timestamp - get_seconds_from_period(period), oldest_timestamp)
             end_timestamp = end_timestamp if end_timestamp != 0 else latest_timestamp
             print(f'Start timestamp: {start_timestamp}, End timestamp: {end_timestamp}')
             total_pool_count = session.query(PoolMetricTable).filter(PoolMetricTable.pool_address == pool_address).count()
+            interval = get_seconds_from_period(interval)
             Token0 = aliased(TokenTable)
             Token1 = aliased(TokenTable)
             CurrentTokenMetric0 = aliased(CurrentTokenMetricTable)
             CurrentTokenMetric1 = aliased(CurrentTokenMetricTable)
+            
             token_pair_info = (
                 session.query(
                     CurrentTokenMetric0.price.label('token0_price'),
@@ -607,8 +598,6 @@ class MinerDBManager:
                     Token0.symbol.label('token0_symbol'),
                     Token1.symbol.label('token1_symbol'),
                     TokenPairTable.fee,
-                    
-                    
                 )
                 .filter(TokenPairTable.pool == pool_address)
                 .join(Token0, TokenPairTable.token0 == Token0.address)
@@ -627,9 +616,12 @@ class MinerDBManager:
                     PoolMetricTable.volume_token0,
                     PoolMetricTable.volume_token1,
                 )
-                .filter(PoolMetricTable.pool_address == pool_address)
-                .filter(PoolMetricTable.timestamp >= start_timestamp)
-                .filter(PoolMetricTable.timestamp <= end_timestamp)
+                .filter(
+                    PoolMetricTable.pool_address == pool_address,
+                    PoolMetricTable.timestamp >= start_timestamp,
+                    PoolMetricTable.timestamp <= end_timestamp,
+                    (PoolMetricTable.timestamp - start_timestamp) % interval == 0
+                )
                 .order_by(PoolMetricTable.timestamp.asc())
                 .limit(page_limit)
                 .offset(page_limit * (page_number - 1))
@@ -638,17 +630,25 @@ class MinerDBManager:
             print(f'Pool metrics: {pool_metrics}')
             return {"pool_metrics": pool_metrics, "token_pair_info": token_pair_info, "total_pool_count": total_pool_count}
         
-    def fetch_token_metric_api(self, page_limit: int, page_number: int, token_address: str, period: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
+    def fetch_token_metric_api(self, page_limit: int, page_number: int, token_address: str, interval: str, period: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
         with self.Session() as session:
             latest_timestamp = session.query(func.max(TokenMetricTable.timestamp)).filter(TokenMetricTable.token_address == token_address).first()[0]
             oldest_timestamp = session.query(func.min(TokenMetricTable.timestamp)).filter(TokenMetricTable.token_address == token_address).first()[0]
-            start_timestamp = start_timestamp if start_timestamp != 0 else max(latest_timestamp - self.get_seconds_from_period(period), oldest_timestamp)
+            if latest_timestamp is None:
+                return {"token_metrics": [], "token_data": {}, "total_token_count:": 0}
+            start_timestamp = start_timestamp if start_timestamp != 0 else max(latest_timestamp - get_seconds_from_period(period), oldest_timestamp)
             end_timestamp = end_timestamp if end_timestamp != 0 else latest_timestamp
+            interval = get_seconds_from_period(interval)
+            if interval == 0:
+                raise Exception("Invalid interval")
             total_token_count = (
                 session.query(TokenMetricTable)
-                .filter(TokenMetricTable.token_address == token_address)
-                .filter(TokenMetricTable.timestamp >= start_timestamp)
-                .filter(TokenMetricTable.timestamp <= end_timestamp)
+                .filter(
+                    TokenMetricTable.token_address == token_address,
+                    TokenMetricTable.timestamp >= start_timestamp,
+                    TokenMetricTable.timestamp <= end_timestamp,
+                    (TokenMetricTable.timestamp - start_timestamp) % interval == 0
+                )
                 .count()
             )
             token_data = (
@@ -667,9 +667,12 @@ class MinerDBManager:
                     TokenMetricTable.total_volume,
                     TokenMetricTable.total_liquidity,
                 )
-                .filter(TokenMetricTable.token_address == token_address)
-                .filter(TokenMetricTable.timestamp >= start_timestamp)
-                .filter(TokenMetricTable.timestamp <= end_timestamp)
+                .filter(
+                    TokenMetricTable.token_address == token_address,
+                    TokenMetricTable.timestamp >= start_timestamp,
+                    TokenMetricTable.timestamp <= end_timestamp,
+                    (TokenMetricTable.timestamp - start_timestamp) % interval == 0
+                )
                 .order_by(TokenMetricTable.timestamp.asc())
                 .limit(page_limit)
                 .offset(page_limit * (page_number - 1))

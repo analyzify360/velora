@@ -40,6 +40,7 @@ class PoolMetricResponse(BaseModel):
 class PoolMetricAPISynapse(BaseModel):
     class_name: str = 'PoolMetricAPISynapse'
     pool_address: str
+    interval: str
     period: str
     start_timestamp: Optional[int]
     end_timestamp: Optional[int]
@@ -88,6 +89,7 @@ class TokenMetricResponse(BaseModel):
 class TokenMetricAPISynapse(BaseModel):
     class_name: str = 'TokenMetricAPISynapse'
     token_address: str
+    interval: str
     period: str
     start_timestamp: Optional[int]
     end_timestamp: Optional[int]

@@ -85,6 +85,7 @@ class Miner(Module):
     
     @endpoint
     def forwardPredictionSynapse(self, synapse: PredictionSynapse):
+        synapse = PredictionSynapse(**synapse)
         self.sync_token_pairs()
         token_pairs = breadthFirstSearch(self, synapse.token_address)
         price_in_usd = [1] * (12 * 24)
@@ -159,7 +160,7 @@ class Miner(Module):
     @endpoint
     def forwardPoolMetricAPISynapse(self, synapse: PoolMetricAPISynapse):
         synapse = PoolMetricAPISynapse(**synapse)
-        db_data = self.db_manager.fetch_pool_metric_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.period, synapse.start_timestamp, synapse.end_timestamp)
+        db_data = self.db_manager.fetch_pool_metric_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.interval, synapse.period, synapse.start_timestamp, synapse.end_timestamp)
         pool_metrics = db_data['pool_metrics']
         total_pool_count = db_data['total_pool_count']
         token_pair_info = db_data['token_pair_info']
@@ -188,7 +189,7 @@ class Miner(Module):
     @endpoint
     def forwardTokenMetricAPISynapse(self, synapse: TokenMetricAPISynapse):
         synapse = TokenMetricAPISynapse(**synapse)
-        db_data = self.db_manager.fetch_token_metric_api(synapse.page_limit, synapse.page_number, synapse.token_address, synapse.period, synapse.start_timestamp, synapse.end_timestamp)
+        db_data = self.db_manager.fetch_token_metric_api(synapse.page_limit, synapse.page_number, synapse.token_address, synapse.interval, synapse.period, synapse.start_timestamp, synapse.end_timestamp)
         token_metrics = db_data['token_metrics']
         total_token_count = db_data['total_token_count']
         token_data = db_data['token_data']
