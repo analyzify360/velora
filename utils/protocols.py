@@ -193,6 +193,18 @@ class CurrentTokenMetricResponse(BaseModel):
     data: list[CurrentTokenMetric]
     total_token_count: int
 
+class PoolEventAPISynapse(BaseModel):
+    class_name: str = 'PoolEventAPISynapse'
+    pool_address: str
+    start_datetime: int
+    end_datetime: int
+    page_limit: Optional[int]
+    page_number: Optional[int]
+
+class PoolEventAPIResponse(BaseModel):
+    class_name: str = 'PoolEventAPIResponse'
+    data: list[dict]
+    total_event_count: int
 
 class_dict = {
     'HealthCheckSynapse': HealthCheckSynapse,
@@ -213,5 +225,6 @@ class_dict = {
     'PoolMetricAPIResponse': PoolMetricAPIResponse,
     'TokenMetricAPISynapse': TokenMetricAPISynapse,
     'TokenMetricAPIResponse': TokenMetricAPIResponse,
-    
+    'PoolEventAPISynapse': PoolEventAPISynapse,
+    'PoolEventAPIResponse': PoolEventAPIResponse,
 }
