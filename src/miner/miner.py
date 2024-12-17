@@ -84,7 +84,7 @@ class Miner(Module):
         return PoolMetricResponse(**pool_metric).json()
     
     @endpoint
-    def forwardPredictionSynapse(self, synapse: PredictionSynapse):
+    def forwardPredictionSynapse(self, synapse: PredictionSynapse) -> str:
         synapse = PredictionSynapse(**synapse)
         self.sync_token_pairs()
         token_pairs = breadthFirstSearch(self, synapse.token_address)
@@ -95,8 +95,10 @@ class Miner(Module):
             price_in_usd = [price_in_usd[i] * data[i] for i in range(len(data))]
         
         price_history = pd.DataFrame(price_in_usd, columns=['close_price'])
-        price = predict_token_price(price_history)
-        return PredictionResponse(prices=price).json()
+        prices = predict_token_price(price_history)
+        prices = prices.tolist()
+        print(f"prices: {prices}")
+        return PredictionResponse(prices=prices).json()
     
     @endpoint
     def forwardCurrentPoolMetricSynapse(self, synapse: CurrentPoolMetricSynapse):
@@ -272,6 +274,24 @@ class Miner(Module):
             } for pool_event in pool_events]
         return BurnEventAPIResponse(data = data, total_event_count = total_burn_count).json()
     
+    @endpoint
+    def forwardPredictionAPISynapse(self, synapse: PredictionAPISynapse) -> str:
+        synapse = PredictionAPISynapse(**synapse)
+        self.sync_token_pairs()
+        token_pairs = breadthFirstSearch(self, synapse.token_address)
+        price_in_usd = [1] * (12 * 24)
+        for token_pair in token_pairs:
+            pool_address = self.db_manager.search_pool_address(token_pair[0], token_pair[1])
+            data = self.uniswap_fetcher_rs.get_pool_price_ratios(pool_address, synapse.timestamp - DAY, synapse.timestamp, 300)
+            price_in_usd = [price_in_usd[i] * data[i] for i in range(len(data))]
+        
+        price_history = pd.DataFrame(price_in_usd, columns=['close_price'])
+        predicted_prices = predict_token_price(price_history)
+        predicted_prices = predicted_prices.tolist()
+        predicted_data = [ {"timestamp": synapse.timestamp + i * 300, "price": predicted_prices[i]} for i in range(len(predicted_prices))]
+        historical_data = [ {"timestamp": synapse.timestamp - DAY + i * 300, "price": price_in_usd[i]} for i in range(len(price_in_usd))][-10:]
+        token_symbol = self.db_manager.get_token_info(synapse.token_address).symbol
+        return PredictionAPIResponse( historical_data=historical_data, predicted_data=predicted_data, token_symbol=token_symbol).json()
 
 if __name__ == "__main__":
     """

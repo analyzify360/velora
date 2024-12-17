@@ -777,3 +777,15 @@ class MinerDBManager:
                 .all()
             )
             return {"burn_events": burn_events, "total_burn_count": total_burn_count}
+        
+    def get_token_info(self, token_address: str) -> Dict[str, Union[str]]:
+        print(f'Fetching token info for {token_address}')
+        with self.Session() as session:
+            token_info = session.query(
+                TokenTable.address,
+                TokenTable.symbol,
+                TokenTable.name,
+                TokenTable.decimals
+                ).filter(TokenTable.address == token_address).first()
+            print(f'Token info: {token_info}')
+            return token_info
