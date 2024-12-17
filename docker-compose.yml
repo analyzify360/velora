@@ -9,7 +9,7 @@ services:
     ports:
       - "${POSTGRES_VALIDATOR_PORT}:5432"                      # Expose PostgreSQL port to localhost
     volumes:
-      - validator_timescaledb_data:/var/lib/postgresql/validator/data  # Persist data locally
+      - timescaledb_data:/var/lib/postgresql/validator/data  # Persist data locally
     networks:
       - postgres_network
 
