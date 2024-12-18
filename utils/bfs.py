@@ -16,11 +16,10 @@ def breadthFirstSearch(self, token_address: str):
         for token in self.db_manager.fetch_related_tokens(current_token):
             if token not in visited:
                 queue.append(token)
-                prev[token] = current_token
-    
+                prev[token] = current_token   
     token_pairs = []
     while current_token is not token_address:
         token_pairs.append((prev[current_token], current_token))
         current_token = prev[current_token]
-    
-    return token_pairs.reverse()
+    token_pairs.reverse()
+    return token_pairs

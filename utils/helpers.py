@@ -66,3 +66,30 @@ def calc_prices_token1_by_token0(
         price = 1 / price
         prices.append(price)
     return prices
+
+def get_seconds_from_period(period: str) -> int:
+        match period:
+            case '1min':
+                return 60
+            case '5min':
+                return 60 * 5
+            case '15min':
+                return 60 * 15
+            case '30min':
+                return 60 * 30
+            case '1h':
+                return 60 * 60
+            case '6h':
+                return 60 * 60 * 6
+            case '1d':
+                return 60 * 60 * 24
+            case '1w':
+                return 60 * 60 * 24 * 7
+            case '1m':
+                return 60 * 60 * 24 * 30
+            case '6m':
+                return 60 * 60 * 24 * 30 * 6
+            case '1y':
+                return 60 * 60 * 24 * 30 * 12
+            case _:
+                return 0

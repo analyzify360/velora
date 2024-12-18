@@ -26,7 +26,6 @@ def load_datasets_from_db():
     input['SMA_50'] = input['close_price'].rolling(window=50).mean()
     input['SMA_200'] = input['close_price'].rolling(window=200).mean()
     input['RSI'] = RSIIndicator(input['close_price']).rsi()
-    input['Momentum'] = ROCIndicator(input['close_price']).roc()
     input['MACD'] = MACD(input['close_price']).macd()
     
     for i in range(1, 1 + PREDICTION_COUNT):
@@ -39,7 +38,7 @@ def load_datasets_from_db():
     return input
 
 def preprocess(dataset: DataFrame):
-    X = dataset[['close_price', 'SMA_50', 'SMA_200', 'RSI', 'Momentum', 'MACD']].values
+    X = dataset[['close_price', 'SMA_50', 'SMA_200', 'RSI', 'MACD']].values
     y = dataset[['NextPrice1', 'NextPrice2', 'NextPrice3', 'NextPrice4', 'NextPrice5', 'NextPrice6']].values
     
     X_scaler = MinMaxScaler(feature_range=(0, 1))

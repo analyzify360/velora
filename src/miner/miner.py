@@ -7,6 +7,7 @@ import os
 import json
 import hashlib
 import pandas as pd
+from datetime import datetime, timezone
 from uniswap_fetcher_rs import UniswapFetcher
 from typing import List
 
@@ -17,7 +18,7 @@ from utils.bfs import breadthFirstSearch
 from src.miner.predict_lstm_model import predict_token_price
 from db.miner_db import MinerDBManager
 
-START_TIMESTAMP = int(datetime(2021, 5, 4).timestamp())
+START_TIMESTAMP = int(datetime(2021, 5, 4).replace(tzinfo=timezone.utc).timestamp())
 DAY = 60 * 60 * 24
 
 class Miner(Module):
@@ -84,17 +85,18 @@ class Miner(Module):
     
     @endpoint
     def forwardPredictionSynapse(self, synapse: PredictionSynapse):
+        synapse = PredictionSynapse(**synapse)
         self.sync_token_pairs()
         token_pairs = breadthFirstSearch(self, synapse.token_address)
-        price_in_usd = [1] * (12 * 24)
+        price_in_usd = [1] * (12 * 24 - 6)
         for token_pair in token_pairs:
             pool_address = self.db_manager.search_pool_address(token_pair[0], token_pair[1])
-            data = self.uniswap_fetcher_rs.get_pool_price_ratios(pool_address, synapse.timestamp - DAY, synapse.timestamp, 300)
-            price_in_usd = [price_in_usd[i] * data[i] for i in range(len(data))]
+            data = self.uniswap_fetcher_rs.get_pool_price_ratios(pool_address, synapse.timestamp - DAY, synapse.timestamp - 30 * 60, 300)
+            price_in_usd = [price_in_usd[i] * float(data[i]['price_ratio']) for i in range(len(data))]
         
         price_history = pd.DataFrame(price_in_usd, columns=['close_price'])
         price = predict_token_price(price_history)
-        return PredictionResponse(price=price).json()
+        return PredictionResponse(prices=price).json()
     
     @endpoint
     def forwardCurrentPoolMetricSynapse(self, synapse: CurrentPoolMetricSynapse):
@@ -158,7 +160,7 @@ class Miner(Module):
     @endpoint
     def forwardPoolMetricAPISynapse(self, synapse: PoolMetricAPISynapse):
         synapse = PoolMetricAPISynapse(**synapse)
-        db_data = self.db_manager.fetch_pool_metric_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.period, synapse.start_timestamp, synapse.end_timestamp)
+        db_data = self.db_manager.fetch_pool_metric_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.interval, synapse.period, synapse.start_timestamp, synapse.end_timestamp)
         pool_metrics = db_data['pool_metrics']
         total_pool_count = db_data['total_pool_count']
         token_pair_info = db_data['token_pair_info']
@@ -187,7 +189,7 @@ class Miner(Module):
     @endpoint
     def forwardTokenMetricAPISynapse(self, synapse: TokenMetricAPISynapse):
         synapse = TokenMetricAPISynapse(**synapse)
-        db_data = self.db_manager.fetch_token_metric_api(synapse.page_limit, synapse.page_number, synapse.token_address, synapse.period, synapse.start_timestamp, synapse.end_timestamp)
+        db_data = self.db_manager.fetch_token_metric_api(synapse.page_limit, synapse.page_number, synapse.token_address, synapse.interval, synapse.period, synapse.start_timestamp, synapse.end_timestamp)
         token_metrics = db_data['token_metrics']
         total_token_count = db_data['total_token_count']
         token_data = db_data['token_data']
@@ -207,6 +209,69 @@ class Miner(Module):
             ) for token_metric in token_metrics]
         print(f"total_token_count: {total_token_count}")
         return TokenMetricAPIResponse(data = data, token_data=token_data, total_token_count = total_token_count).json()
+    
+    @endpoint
+    def forwardSwapEventAPISynapse(self, synapse: SwapEventAPISynapse):
+        synapse = SwapEventAPISynapse(**synapse)
+        db_data = self.db_manager.fetch_swap_event_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.start_timestamp, synapse.end_timestamp)
+        pool_events = db_data['swap_events']
+        total_swap_count = db_data['total_swap_count']
+        data = [{
+            "timestamp": pool_event.timestamp,
+            "pool_address": pool_event.pool_address,
+            "block_number": pool_event.block_number,
+            "transaction_hash": pool_event.transaction_hash,
+            "sender": pool_event.sender,
+            "to": pool_event.to,
+            "amount0": pool_event.amount0,
+            "amount1": pool_event.amount1,
+            "sqrt_price_x96": pool_event.sqrt_price_x96,
+            "liquidity": pool_event.liquidity,
+            "tick": pool_event.tick,
+            } for pool_event in pool_events]
+        return SwapEventAPIResponse(data = data, total_event_count = total_swap_count).json()
+    @endpoint
+    def forwardMintEventAPISynapse(self, synapse: MintEventAPISynapse):
+        synapse = MintEventAPISynapse(**synapse)
+        db_data = self.db_manager.fetch_mint_event_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.start_timestamp, synapse.end_timestamp)
+        pool_events = db_data['mint_events']
+        total_mint_count = db_data['total_mint_count']
+        data = [{
+            "timestamp": pool_event.timestamp,
+            "pool_address": pool_event.pool_address,
+            "block_number": pool_event.block_number,
+            "transaction_hash": pool_event.transaction_hash,
+            "sender": pool_event.sender,
+            "owner": pool_event.owner,
+            "tick_lower": pool_event.tick_lower,
+            "tick_upper": pool_event.tick_upper,
+            "amount": pool_event.amount,
+            "amount0": pool_event.amount0,
+            "amount1": pool_event.amount1,
+            } for pool_event in pool_events]
+        return MintEventAPIResponse(data = data, total_event_count = total_mint_count).json()
+    @endpoint
+    def forwardBurnEventAPISynapse(self, synapse: BurnEventAPISynapse):
+        synapse = BurnEventAPISynapse(**synapse)
+        print(f"synapse: {synapse}")
+        db_data = self.db_manager.fetch_burn_event_api(synapse.page_limit, synapse.page_number, synapse.pool_address, synapse.start_timestamp, synapse.end_timestamp)
+        pool_events = db_data['burn_events']
+        total_burn_count = db_data['total_burn_count']
+        data = [{
+            "timestamp": pool_event.timestamp,
+            "pool_address": pool_event.pool_address,
+            "block_number": pool_event.block_number,
+            "transaction_hash": pool_event.transaction_hash,
+            "owner": pool_event.owner,
+            "tick_lower": pool_event.tick_lower,
+            "tick_upper": pool_event.tick_upper,
+            "amount": pool_event.amount,
+            "amount0": pool_event.amount0,
+            "amount1": pool_event.amount1,
+            
+            } for pool_event in pool_events]
+        return BurnEventAPIResponse(data = data, total_event_count = total_burn_count).json()
+    
 
 if __name__ == "__main__":
     """

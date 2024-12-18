@@ -40,6 +40,7 @@ class PoolMetricResponse(BaseModel):
 class PoolMetricAPISynapse(BaseModel):
     class_name: str = 'PoolMetricAPISynapse'
     pool_address: str
+    interval: str
     period: str
     start_timestamp: Optional[int]
     end_timestamp: Optional[int]
@@ -88,6 +89,7 @@ class TokenMetricResponse(BaseModel):
 class TokenMetricAPISynapse(BaseModel):
     class_name: str = 'TokenMetricAPISynapse'
     token_address: str
+    interval: str
     period: str
     start_timestamp: Optional[int]
     end_timestamp: Optional[int]
@@ -191,6 +193,44 @@ class CurrentTokenMetricResponse(BaseModel):
     data: list[CurrentTokenMetric]
     total_token_count: int
 
+class SwapEventAPISynapse(BaseModel):
+    class_name: str = 'SwapEventAPISynapse'
+    pool_address: str
+    start_timestamp: int
+    end_timestamp: int
+    page_limit: Optional[int]
+    page_number: Optional[int]
+
+class SwapEventAPIResponse(BaseModel):
+    class_name: str = 'SwapEventAPIResponse'
+    data: list[dict]
+    total_event_count: int
+
+class MintEventAPISynapse(BaseModel):
+    class_name: str = 'MintEventAPISynapse'
+    pool_address: str
+    start_timestamp: int
+    end_timestamp: int
+    page_limit: Optional[int]
+    page_number: Optional[int]
+    
+class MintEventAPIResponse(BaseModel):
+    class_name: str = 'MintEventAPIResponse'
+    data: list[dict]
+    total_event_count: int
+
+class BurnEventAPISynapse(BaseModel):
+    class_name: str = 'BurnEventAPISynapse'
+    pool_address: str
+    start_timestamp: int
+    end_timestamp: int
+    page_limit: Optional[int]
+    page_number: Optional[int]
+    
+class BurnEventAPIResponse(BaseModel):
+    class_name: str = 'BurnEventAPIResponse'
+    data: list[dict]
+    total_event_count: int
 
 class_dict = {
     'HealthCheckSynapse': HealthCheckSynapse,
@@ -211,5 +251,10 @@ class_dict = {
     'PoolMetricAPIResponse': PoolMetricAPIResponse,
     'TokenMetricAPISynapse': TokenMetricAPISynapse,
     'TokenMetricAPIResponse': TokenMetricAPIResponse,
-    
+    'SwapEventAPISynapse': SwapEventAPISynapse,
+    'SwapEventAPIResponse': SwapEventAPIResponse,
+    'MintEventAPISynapse': MintEventAPISynapse,
+    'MintEventAPIResponse': MintEventAPIResponse,
+    'BurnEventAPISynapse': BurnEventAPISynapse,
+    'BurnEventAPIResponse': BurnEventAPIResponse
 }

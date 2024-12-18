@@ -1,9 +1,10 @@
-from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, Float, inspect, insert, desc, asc, desc
+from sqlalchemy import create_engine, Column, Date, Boolean, MetaData, Table, String, Integer, Float, inspect, func, desc, asc, desc, and_
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, aliased
 from typing import Union, List, Dict
 from utils.config import get_postgres_miner_url
 from utils.utils import has_stablecoin
+from utils.helpers import get_seconds_from_period
 
 from datetime import datetime
 
@@ -127,6 +128,16 @@ class TokenTable(Base):
     name = Column(String, nullable=False)
     decimals = Column(Integer, nullable=False)
 
+class TokenMetricTable(Base):
+    __tablename__ = "token_metrics"
+    timestamp = Column(Integer, nullable=False, primary_key=True)
+    token_address = Column(String, nullable=False, primary_key=True)
+    close_price = Column(Float)
+    high_price = Column(Float)
+    low_price = Column(Float)
+    total_volume = Column(Float)
+    total_liquidity = Column(Float)
+
 class MinerDBManager:
 
     def __init__(self, url = get_postgres_miner_url()) -> None:
@@ -218,6 +229,7 @@ class MinerDBManager:
                 last_pool_address = last_token_pair.pool
             except:
                 last_block_number = 0
+        print(f'Last block number: {last_block_number}')
         insert_values = [
             TokenPairTable(
                 token0=token_pair["token0"]["address"],
@@ -231,7 +243,7 @@ class MinerDBManager:
                 last_synced_time=timestamp
             )
             for token_pair in token_pairs
-            if token_pair['block_number'] > last_block_number or (token_pair['block_number'] == last_block_number and token_pair['pool_address'] != last_pool_address)
+            if token_pair['block_number'] > last_block_number
         ]
         self.add_tokens(
             [
@@ -271,6 +283,7 @@ class MinerDBManager:
     def lastSyncedTimestamp(self):
         with self.Session() as session:
             res = session.query(TokenPairTable).order_by(TokenPairTable.last_synced_time.desc()).first()
+            print(f'Last synced timestamp: {res.last_synced_time}')
             if res is not None:
                 return res.last_synced_time
 
@@ -390,24 +403,85 @@ class MinerDBManager:
             Token0 = aliased(TokenTable)
             Token1 = aliased(TokenTable)
             TokenPair = aliased(TokenPairTable)
+            TokenMetric0 = aliased(CurrentTokenMetricTable)
+            TokenMetric1 = aliased(CurrentTokenMetricTable)
             total_pool_count = session.query(CurrentPoolMetricTable).filter(CurrentPoolMetricTable.pool_address.like(f'%{search_query}%')).count()
+            # recent_fetched_timestamp = session.query(PoolMetricTable.timestamp).group_by().order_by(PoolMetricTable.timestamp.desc()).first()
+            latest_timestamps = session.query(
+                PoolMetricTable.pool_address,
+                func.max(PoolMetricTable.timestamp).label('latest_timestamp')
+            ).group_by(PoolMetricTable.pool_address).subquery()
+
+            # recent_fetched_timestamp = session.query(
+            #     latest_timestamps.c.pool_address,
+            #     latest_timestamps.c.latest_timestamp
+            # ).order_by(latest_timestamps.c.latest_timestamp.desc()).all()
+            # print(f'Recent fetched timestamp: {recent_fetched_timestamp}')
             pool_metrics = (
                 session.query(
-                    CurrentPoolMetricTable,
+                    PoolMetricTable,
                     Token0.symbol.label('token0_symbol'),
                     Token1.symbol.label('token1_symbol'),
                     TokenPair.fee.label('fee'),
+                    TokenMetric0.price.label('token0_price'),
+                    TokenMetric1.price.label('token1_price')
                 )
-                .filter(CurrentPoolMetricTable.pool_address.like(f'%{search_query}%'))
-                .join(TokenPair, CurrentPoolMetricTable.pool_address == TokenPair.pool)
+                .filter(PoolMetricTable.pool_address == latest_timestamps.c.pool_address)
+                .filter(PoolMetricTable.timestamp == latest_timestamps.c.latest_timestamp)
+                .join(TokenPair, PoolMetricTable.pool_address == TokenPair.pool)
                 .join(Token0, TokenPair.token0 == Token0.address)
                 .join(Token1, TokenPair.token1 == Token1.address)
-                .order_by(order_method(getattr(CurrentPoolMetricTable, sort_by)))
+                .join(TokenMetric0, TokenPair.token0 == TokenMetric0.token_address)
+                .join(TokenMetric1, TokenPair.token1 == TokenMetric1.token_address)
+                .order_by(order_method(getattr(PoolMetricTable, sort_by)))
                 .limit(page_limit)
                 .offset(page_limit * (page_number - 1))
                 .all()
             )
-            return {"pool_metrics": pool_metrics, "total_pool_count": total_pool_count}
+            
+            pool_metrics_with_diff = []
+            for metric in pool_metrics:
+                previous_metric = session.query(PoolMetricTable).filter(
+                    PoolMetricTable.pool_address == metric.PoolMetricTable.pool_address,
+                    PoolMetricTable.timestamp == metric.PoolMetricTable.timestamp - 300
+                ).first()
+                
+                if previous_metric:
+                    metric_diff = {
+                        "pool_address": metric.PoolMetricTable.pool_address,
+                        "timestamp": metric.PoolMetricTable.timestamp,
+                        "price": metric.PoolMetricTable.price,
+                        "liquidity_token0": metric.PoolMetricTable.liquidity_token0,
+                        "liquidity_token1": metric.PoolMetricTable.liquidity_token1,
+                        "total_volume_token0": metric.PoolMetricTable.volume_token0,
+                        "total_volume_token1": metric.PoolMetricTable.volume_token1,
+                        "volume_token0_1day": metric.PoolMetricTable.volume_token0 - previous_metric.volume_token0,
+                        "volume_token1_1day": metric.PoolMetricTable.volume_token1 - previous_metric.volume_token1,
+                        "token0_symbol": metric.token0_symbol,
+                        "token1_symbol": metric.token1_symbol,
+                        "token0_price": metric.token0_price,
+                        "token1_price": metric.token1_price,
+                        "fee": metric.fee
+                    }
+                else:
+                    metric_diff = {
+                        "pool_address": metric.PoolMetricTable.pool_address,
+                        "timestamp": metric.PoolMetricTable.timestamp,
+                        "price": metric.PoolMetricTable.price,
+                        "liquidity_token0": metric.PoolMetricTable.liquidity_token0,
+                        "liquidity_token1": metric.PoolMetricTable.liquidity_token1,
+                        "total_volume_token0": metric.PoolMetricTable.volume_token0,
+                        "total_volume_token1": metric.PoolMetricTable.volume_token1,
+                        "volume_token0_1day": metric.PoolMetricTable.volume_token0,
+                        "volume_token1_1day": metric.PoolMetricTable.volume_token1,
+                        "token0_symbol": metric.token0_symbol,
+                        "token1_symbol": metric.token1_symbol,
+                        "token0_price": metric.token0_price,
+                        "token1_price": metric.token1_price,
+                        "fee": metric.fee
+                    }
+                pool_metrics_with_diff.append(metric_diff)
+            return {"pool_metrics": pool_metrics_with_diff, "total_pool_count": total_pool_count}
     
     def fetch_recent_pool_events(self, page_limit: int, filter_by: str) -> Dict[str, List[Dict[str, Union[str, int]]]]:
         with self.Session() as session:
@@ -500,13 +574,20 @@ class MinerDBManager:
             )
             return {"token_metrics": token_metrics, "total_token_count": total_token_count}
     
-    def fetch_pool_metric_api(self, page_limit:int, page_number: int, pool_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+    def fetch_pool_metric_api(self, page_limit:int, page_number: int, pool_address: str, interval: str, period: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
         with self.Session() as session:
+            latest_timestamp = session.query(func.max(PoolMetricTable.timestamp)).filter(PoolMetricTable.pool_address == pool_address).first()[0]
+            oldest_timestamp = session.query(func.min(PoolMetricTable.timestamp)).filter(PoolMetricTable.pool_address == pool_address).first()[0]
+            start_timestamp = start_timestamp if start_timestamp != 0 else max(latest_timestamp - get_seconds_from_period(period), oldest_timestamp)
+            end_timestamp = end_timestamp if end_timestamp != 0 else latest_timestamp
+            print(f'Start timestamp: {start_timestamp}, End timestamp: {end_timestamp}')
             total_pool_count = session.query(PoolMetricTable).filter(PoolMetricTable.pool_address == pool_address).count()
+            interval = get_seconds_from_period(interval)
             Token0 = aliased(TokenTable)
             Token1 = aliased(TokenTable)
             CurrentTokenMetric0 = aliased(CurrentTokenMetricTable)
             CurrentTokenMetric1 = aliased(CurrentTokenMetricTable)
+            
             token_pair_info = (
                 session.query(
                     CurrentTokenMetric0.price.label('token0_price'),
@@ -517,8 +598,6 @@ class MinerDBManager:
                     Token0.symbol.label('token0_symbol'),
                     Token1.symbol.label('token1_symbol'),
                     TokenPairTable.fee,
-                    
-                    
                 )
                 .filter(TokenPairTable.pool == pool_address)
                 .join(Token0, TokenPairTable.token0 == Token0.address)
@@ -537,12 +616,164 @@ class MinerDBManager:
                     PoolMetricTable.volume_token0,
                     PoolMetricTable.volume_token1,
                 )
-                .filter(PoolMetricTable.pool_address == pool_address)
-                .filter(PoolMetricTable.timestamp >= start_timestamp)
-                .filter(PoolMetricTable.timestamp <= end_timestamp)
+                .filter(
+                    PoolMetricTable.pool_address == pool_address,
+                    PoolMetricTable.timestamp >= start_timestamp,
+                    PoolMetricTable.timestamp <= end_timestamp,
+                    (PoolMetricTable.timestamp - start_timestamp) % interval == 0
+                )
                 .order_by(PoolMetricTable.timestamp.asc())
                 .limit(page_limit)
                 .offset(page_limit * (page_number - 1))
                 .all()
             )
+            print(f'Pool metrics: {pool_metrics}')
             return {"pool_metrics": pool_metrics, "token_pair_info": token_pair_info, "total_pool_count": total_pool_count}
+        
+    def fetch_token_metric_api(self, page_limit: int, page_number: int, token_address: str, interval: str, period: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int, float]]]]:
+        with self.Session() as session:
+            latest_timestamp = session.query(func.max(TokenMetricTable.timestamp)).filter(TokenMetricTable.token_address == token_address).first()[0]
+            oldest_timestamp = session.query(func.min(TokenMetricTable.timestamp)).filter(TokenMetricTable.token_address == token_address).first()[0]
+            if latest_timestamp is None:
+                return {"token_metrics": [], "token_data": {}, "total_token_count:": 0}
+            start_timestamp = start_timestamp if start_timestamp != 0 else max(latest_timestamp - get_seconds_from_period(period), oldest_timestamp)
+            end_timestamp = end_timestamp if end_timestamp != 0 else latest_timestamp
+            interval = get_seconds_from_period(interval)
+            if interval == 0:
+                raise Exception("Invalid interval")
+            total_token_count = (
+                session.query(TokenMetricTable)
+                .filter(
+                    TokenMetricTable.token_address == token_address,
+                    TokenMetricTable.timestamp >= start_timestamp,
+                    TokenMetricTable.timestamp <= end_timestamp,
+                    (TokenMetricTable.timestamp - start_timestamp) % interval == 0
+                )
+                .count()
+            )
+            token_data = (
+                session.query(
+                    TokenTable.address,
+                    TokenTable.symbol,
+                    TokenTable.decimals,
+                ).filter(TokenTable.address == token_address).first()
+            )
+            token_metrics = (
+                session.query(
+                    TokenMetricTable.timestamp,
+                    TokenMetricTable.close_price,
+                    TokenMetricTable.low_price,
+                    TokenMetricTable.high_price,
+                    TokenMetricTable.total_volume,
+                    TokenMetricTable.total_liquidity,
+                )
+                .filter(
+                    TokenMetricTable.token_address == token_address,
+                    TokenMetricTable.timestamp >= start_timestamp,
+                    TokenMetricTable.timestamp <= end_timestamp,
+                    (TokenMetricTable.timestamp - start_timestamp) % interval == 0
+                )
+                .order_by(TokenMetricTable.timestamp.asc())
+                .limit(page_limit)
+                .offset(page_limit * (page_number - 1))
+                .all()
+            )
+            return {"token_metrics": token_metrics, "token_data": token_data, "total_token_count": total_token_count}
+    
+    def fetch_swap_event_api(self, page_limit: int, page_number: int, pool_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+        with self.Session() as session:
+            total_swap_count = session.query(SwapEventTable).filter(
+                SwapEventTable.pool_address == pool_address,
+                SwapEventTable.timestamp >= start_timestamp,
+                SwapEventTable.timestamp <= end_timestamp
+            ).count()
+            swap_events = (
+                session.query(
+                    SwapEventTable.timestamp,
+                    SwapEventTable.pool_address,
+                    SwapEventTable.block_number,
+                    SwapEventTable.transaction_hash,
+                    SwapEventTable.sender,
+                    SwapEventTable.to,
+                    SwapEventTable.amount0,
+                    SwapEventTable.amount1,
+                    SwapEventTable.sqrt_price_x96,
+                    SwapEventTable.liquidity,
+                    SwapEventTable.tick,
+                )
+                .filter(
+                    SwapEventTable.pool_address == pool_address,
+                    SwapEventTable.timestamp >= start_timestamp,
+                    SwapEventTable.timestamp <= end_timestamp
+                )
+                .order_by(SwapEventTable.timestamp.asc())
+                .limit(page_limit)
+                .offset(page_limit * (page_number - 1))
+                .all()
+            )
+            return {"swap_events": swap_events, "total_swap_count": total_swap_count}
+    
+    def fetch_mint_event_api(self, page_limit: int, page_number: int, pool_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+        with self.Session() as session:
+            total_mint_count = session.query(MintEventTable).filter(
+                MintEventTable.pool_address == pool_address,
+                MintEventTable.timestamp >= start_timestamp,
+                MintEventTable.timestamp <= end_timestamp
+            ).count()
+            mint_events = (
+                session.query(
+                    MintEventTable.timestamp,
+                    MintEventTable.pool_address,
+                    MintEventTable.block_number,
+                    MintEventTable.transaction_hash,
+                    MintEventTable.sender,
+                    MintEventTable.owner,
+                    MintEventTable.tick_lower,
+                    MintEventTable.tick_upper,
+                    MintEventTable.amount,
+                    MintEventTable.amount0,
+                    MintEventTable.amount1,
+                )
+                .filter(
+                    MintEventTable.pool_address == pool_address,
+                    MintEventTable.timestamp >= start_timestamp,
+                    MintEventTable.timestamp <= end_timestamp
+                )
+                .order_by(MintEventTable.timestamp.asc())
+                .limit(page_limit)
+                .offset(page_limit * (page_number - 1))
+                .all()
+            )
+            return {"mint_events": mint_events, "total_mint_count": total_mint_count}
+    
+    def fetch_burn_event_api(self, page_limit: int, page_number: int, pool_address: str, start_timestamp: int, end_timestamp: int) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+        with self.Session() as session:
+            total_burn_count = session.query(BurnEventTable).filter(
+                BurnEventTable.pool_address == pool_address,
+                BurnEventTable.timestamp >= start_timestamp,
+                BurnEventTable.timestamp <= end_timestamp
+            ).count()
+            burn_events = (
+                session.query(
+                    BurnEventTable.timestamp,
+                    BurnEventTable.pool_address,
+                    BurnEventTable.block_number,
+                    BurnEventTable.transaction_hash,
+                    BurnEventTable.owner,
+                    BurnEventTable.tick_lower,
+                    BurnEventTable.tick_upper,
+                    BurnEventTable.amount,
+                    BurnEventTable.amount0,
+                    BurnEventTable.amount1,
+                )
+                .filter(
+                    BurnEventTable.pool_address == pool_address,
+                    BurnEventTable.timestamp >= start_timestamp,
+                    BurnEventTable.timestamp <= end_timestamp
+                )
+                .order_by(BurnEventTable.timestamp.asc())
+                .limit(page_limit)
+                .offset(page_limit * (page_number - 1))
+                .all()
+            )
+            return {"burn_events": burn_events, "total_burn_count": total_burn_count}
