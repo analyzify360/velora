@@ -22,11 +22,11 @@ def serve(
     call_timeout: int = 65,
     wandb_on: bool = False
 ):
-    password = getpass.getpass(prompt="Enther the password:")
-    keypair = classic_load_key(commune_key, password=password)  # type: ignore
+    # password = getpass.getpass(prompt="Enther the password:")
+    keypair = classic_load_key(commune_key)  # type: ignore
     settings = ValidatorSettings()  # type: ignore
 
-    c_client = CommuneClient(get_node_url(use_testnet = use_testnet))  # type: ignore
+    c_client = CommuneClient(get_node_url(use_testnet = use_testnet), timeout=400)  # type: ignore
     validator = VeloraValidator(
         keypair,
         netuid,

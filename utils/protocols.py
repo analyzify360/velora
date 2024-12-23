@@ -1,6 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Union
 
 class HealthCheckSynapse(BaseModel):
     class_name: str = 'HealthCheckSynapse'
@@ -123,6 +123,17 @@ class PredictionSynapse(BaseModel):
 class PredictionResponse(BaseModel):
     class_name: str = 'PredictionResponse'
     prices: list[float]
+
+class PredictionAPISynapse(BaseModel):
+    class_name: str = 'PredictionAPISynapse'
+    timestamp: int
+    token_address: str
+
+class PredictionAPIResponse(BaseModel):
+    class_name: str = 'PredictionAPIResponse'
+    historical_data: list[Dict[str, Union[int, float]]]
+    predicted_data: list[Dict[str, Union[int, float]]]
+    token_symbol: str
 
 class CurrentPoolMetricSynapse(BaseModel):
     class_name: str = 'CurrentPoolMetricSynapse'
@@ -256,5 +267,7 @@ class_dict = {
     'MintEventAPISynapse': MintEventAPISynapse,
     'MintEventAPIResponse': MintEventAPIResponse,
     'BurnEventAPISynapse': BurnEventAPISynapse,
-    'BurnEventAPIResponse': BurnEventAPIResponse
+    'BurnEventAPIResponse': BurnEventAPIResponse,
+    'PredictionAPISynapse': PredictionAPISynapse,
+    'PredictionAPIResponse': PredictionAPIResponse,
 }

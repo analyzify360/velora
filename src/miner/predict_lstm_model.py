@@ -50,10 +50,10 @@ def preprocess(dataset: DataFrame):
     
     return X_scaler, y_scaler, X_scaled
 
-def predict(X, y_scaler):
+def predict(X, y_scaler) -> np.ndarray:
     model_path = './base_model'
     
-    X = X.reshape(X.shape[0], 1, X.shape[1])
+    X = X[-1].reshape(1, 1, -1)
     
     model = load_model(f'{model_path}/lstm_model.h5')
     
@@ -65,7 +65,7 @@ def predict(X, y_scaler):
     
     return predicted_prices
 
-def predict_token_price(data: DataFrame = None, pool_address: str = None):
+def predict_token_price(data: DataFrame = None, pool_address: str = None) -> np.ndarray:
     if data is None and pool_address is None:
         print('No data available.')
         return None
@@ -77,7 +77,7 @@ def predict_token_price(data: DataFrame = None, pool_address: str = None):
     X_scaler, y_scaler, X = preprocess(data)
     result = predict(X, y_scaler)
     
-    return result
+    return result[0]
 
 if __name__ == '__main__':
     dataset = load_datasets_from_db()
