@@ -23,8 +23,8 @@ def serve(
     use_testnet: bool = typer.Option(False, help="Network to connect to [`mainnet`, `testnet`]"),
     call_timeout: int = typer.Option(65, help="Timeout for the call"),
 ):
-    password = getpass.getpass(prompt="Enter the password for your key:")
-    key = classic_load_key(commune_key, password=password)
+    # password = getpass.getpass(prompt="Enter the password for your key:")
+    key = classic_load_key(commune_key)
     miner = Miner()
     refill_rate = 1
     # Implementing custom limit

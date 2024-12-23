@@ -99,4 +99,4 @@ networks:
 
 volumes:
   postgres_data:
-  timescaledb_data:
+  validator_timescaledb_data:
