@@ -369,7 +369,7 @@ class VeloraValidator(Module):
         for miner_data in healthy_data:
             if miner_data is None or miner_data['data'] is None: continue
             miner_data = miner_data['data']
-            days = (miner_data.time_completed - START_TIMESTAMP) // DAY_SECONDS
+            days = int((miner_data.time_completed - START_TIMESTAMP) // DAY_SECONDS)
             random_pick = random.randint(0, days)
             start_date = random_pick * DAY_SECONDS + START_TIMESTAMP
             end_date = start_date + DAY_SECONDS
