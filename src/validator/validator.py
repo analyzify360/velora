@@ -401,6 +401,8 @@ class VeloraValidator(Module):
         ANSWER_CHECK_COUNT = 10
         correct_count = 0
         for _ in range(ANSWER_CHECK_COUNT):
+            if len(miner_data) == 0:
+                return False
             block_data = random.choice(miner_data)
             block_number = block_data.get("block_number", None)
             
