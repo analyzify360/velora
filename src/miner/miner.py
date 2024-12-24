@@ -45,7 +45,7 @@ class Miner(Module):
     def sync_token_pairs(self) -> None:
         log('Syncing token pairs...')
         
-        now = int(datetime.now().timestamp())
+        now = int(datetime.now().timestamp() - 12)
         token_pairs = self.uniswap_fetcher_rs.get_pool_created_events_between_two_timestamps(self.last_synced_time, now)
         self.db_manager.add_token_pairs(token_pairs, now)
         self.last_synced_time = now
