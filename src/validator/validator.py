@@ -396,13 +396,11 @@ class VeloraValidator(Module):
         block_number_start, block_number_end = self.uniswap_fetcher_rs.get_block_number_range(start_datetime, end_datetime)
         
         miner_data = miner_answer.data
-        if miner_data is None:
+        if not miner_data:
             return False
         ANSWER_CHECK_COUNT = 10
         correct_count = 0
         for _ in range(ANSWER_CHECK_COUNT):
-            if len(miner_data) == 0:
-                return False
             block_data = random.choice(miner_data)
             block_number = block_data.get("block_number", None)
             
@@ -535,7 +533,7 @@ class VeloraValidator(Module):
         for miner_data in healthy_data:
             if miner_data is None or miner_data['data'] is None: continue
             miner_data = miner_data['data']
-            days = (miner_data.time_completed - START_TIMESTAMP) / (POOL_METRIC_INTERVAL)
+            days = int((miner_data.time_completed - START_TIMESTAMP) / (POOL_METRIC_INTERVAL))
             random_pick = random.randint(0, days)
             timestamp = random_pick * 300 + START_TIMESTAMP
             pool_addr = random.choice(miner_data.pool_addresses)
